@@ -8,7 +8,7 @@ use std::ops::{Deref, DerefMut};
 
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
-use crate::utf16::{Utf16CharExt, validate_raw_utf16};
+use crate::utilities::{Utf16CharExt, validate_raw_utf16};
 use crate::{Utf16Error, WStr, WString};
 
 impl WString<LittleEndian> {

@@ -7,7 +7,9 @@ use byteorder::ByteOrder;
 
 use std::iter::FusedIterator;
 
-use crate::utf16::{Utf16CharExt, decode_surrogates, is_leading_surrogate, is_trailing_surrogate};
+use crate::utilities::{
+    Utf16CharExt, decode_surrogates, is_leading_surrogate, is_trailing_surrogate,
+};
 use crate::{WStrCharIndices, WStrChars};
 
 impl<'a, E> Iterator for WStrChars<'a, E>

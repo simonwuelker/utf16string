@@ -8,7 +8,7 @@ use std::fmt;
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
 use crate::slicing::SliceIndex;
-use crate::utf16::{is_trailing_surrogate, validate_raw_utf16};
+use crate::utilities::{is_trailing_surrogate, validate_raw_utf16};
 use crate::{Utf16Error, WStr, WStrCharIndices, WStrChars};
 
 impl WStr<LittleEndian> {

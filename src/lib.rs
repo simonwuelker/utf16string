@@ -84,12 +84,16 @@ pub use byteorder::{BE, BigEndian, LE, LittleEndian};
 mod error;
 mod iters;
 mod slicing;
-mod utf16;
+mod utilities;
 mod wstr;
 mod wstring;
+#[macro_use]
+mod macros;
 
 #[doc(inline)]
 pub use crate::slicing::SliceIndex;
+
+pub use macros::CodePointIterator;
 
 /// Error for invalid UTF-16 encoded bytes.
 #[derive(Debug, Copy, Clone)]
