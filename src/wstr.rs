@@ -129,7 +129,7 @@ where
     ///
     /// You must guarantee that the buffer passed in is encoded correctly otherwise you will
     /// get undefined behaviour.  Be aware of the byte-level endianess.
-    pub unsafe fn from_utf16_unchecked(raw: &[u8]) -> &Self {
+    pub const unsafe fn from_utf16_unchecked(raw: &[u8]) -> &Self {
         unsafe { &*(raw as *const [u8] as *const Self) }
     }
 
@@ -139,19 +139,19 @@ where
     ///
     /// You must guarantee that the buffer passed in is encoded correctly otherwise you will
     /// get undefined behaviour.
-    pub unsafe fn from_utf16_unchecked_mut(raw: &mut [u8]) -> &mut Self {
+    pub const unsafe fn from_utf16_unchecked_mut(raw: &mut [u8]) -> &mut Self {
         unsafe { &mut *(raw as *mut [u8] as *mut Self) }
     }
 
     /// The length in bytes, not chars or graphemes.
     #[inline]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.raw.len()
     }
 
     /// Returns `true` if the [WStr::len] is zero.
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
@@ -173,7 +173,7 @@ where
 
     /// Converts to a byte slice.
     #[inline]
-    pub fn as_bytes(&self) -> &[u8] {
+    pub const fn as_bytes(&self) -> &[u8] {
         &self.raw
     }
 
@@ -184,21 +184,19 @@ where
     /// When mutating the bytes it must still be valid encoded UTF-16 with the correct
     /// byte-order, otherwise you will get undefined behaviour.
     #[inline]
-    pub unsafe fn as_bytes_mut(&mut self) -> &mut [u8] {
+    pub const unsafe fn as_bytes_mut(&mut self) -> &mut [u8] {
         &mut self.raw
     }
 
     /// Converts to a raw pointer to the byte slice.
-    ///
-    /// This is currently not `const fn` because this is not yet stable with a trait bound.
     #[inline]
-    pub fn as_ptr(&self) -> *const u8 {
+    pub const fn as_ptr(&self) -> *const u8 {
         self.raw.as_ptr()
     }
 
     /// Converts to a mutable raw pointer to the byte slice.
     #[inline]
-    pub fn as_mut_ptr(&mut self) -> *mut u8 {
+    pub const fn as_mut_ptr(&mut self) -> *mut u8 {
         self.raw.as_mut_ptr()
     }
 
@@ -284,7 +282,7 @@ where
 
     /// Returns `true` if all characters in the string are ASCII.
     #[inline]
-    pub fn is_ascii(&self) -> bool {
+    pub const fn is_ascii(&self) -> bool {
         self.as_bytes().is_ascii()
     }
 }
