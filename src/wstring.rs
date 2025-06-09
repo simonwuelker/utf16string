@@ -3,7 +3,7 @@
 //! The type itself lives in the `lib.rs` file to avoid having to have a public alias, but
 //! implementations live here.
 
-use std::borrow::Borrow;
+use std::borrow::{Borrow, ToOwned};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
@@ -412,12 +412,33 @@ where
     }
 }
 
+impl<E> From<&WStr<E>> for WString<E>
+where
+    E: ByteOrder,
+{
+    fn from(value: &WStr<E>) -> Self {
+        // SAFETY: WStr<E> has the same safety invariants as WString<E>
+        unsafe { Self::from_utf16_unchecked(value.as_bytes().to_owned()) }
+    }
+}
+
 impl<E> Borrow<WStr<E>> for WString<E>
 where
     E: ByteOrder,
 {
     fn borrow(&self) -> &WStr<E> {
         self.as_wstr()
+    }
+}
+
+impl<E> ToOwned for WStr<E>
+where
+    E: ByteOrder,
+{
+    type Owned = WString<E>;
+
+    fn to_owned(&self) -> Self::Owned {
+        self.into()
     }
 }
 
