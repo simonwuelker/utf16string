@@ -3,6 +3,7 @@
 //! The type itself lives in the `lib.rs` file to avoid having to have a public alias, but
 //! implementations live here.
 
+use std::borrow::Borrow;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
@@ -408,6 +409,15 @@ where
     #[inline]
     fn from(source: &String) -> Self {
         Self::from(source.as_str())
+    }
+}
+
+impl<E> Borrow<WStr<E>> for WString<E>
+where
+    E: ByteOrder,
+{
+    fn borrow(&self) -> &WStr<E> {
+        self.as_wstr()
     }
 }
 
