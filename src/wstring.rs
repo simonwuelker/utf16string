@@ -8,7 +8,7 @@ use std::ops::{Deref, DerefMut};
 
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
-use crate::utf16::{validate_raw_utf16, Utf16CharExt};
+use crate::utf16::{Utf16CharExt, validate_raw_utf16};
 use crate::{Utf16Error, WStr, WString};
 
 impl WString<LittleEndian> {
@@ -25,7 +25,7 @@ impl WString<LittleEndian> {
     /// byte-order, otherwise you will get undefined behaviour.
     #[inline]
     pub unsafe fn from_utf16le_unchecked(buf: Vec<u8>) -> Self {
-        Self::from_utf16_unchecked(buf)
+        unsafe { Self::from_utf16_unchecked(buf) }
     }
 }
 
@@ -43,7 +43,7 @@ impl WString<BigEndian> {
     /// otherwise you will get undefined behaviour.
     #[inline]
     pub unsafe fn from_utf16be_unchecked(buf: Vec<u8>) -> Self {
-        Self::from_utf16_unchecked(buf)
+        unsafe { Self::from_utf16_unchecked(buf) }
     }
 }
 

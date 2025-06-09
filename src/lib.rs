@@ -79,7 +79,7 @@ use std::slice::ChunksExact;
 
 use byteorder::ByteOrder;
 
-pub use byteorder::{BigEndian, LittleEndian, BE, LE};
+pub use byteorder::{BE, BigEndian, LE, LittleEndian};
 
 mod error;
 mod iters;

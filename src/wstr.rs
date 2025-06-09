@@ -43,7 +43,7 @@ impl WStr<LittleEndian> {
     /// You must guarantee that the buffer passed in is encoded correctly as UTF-16 with
     /// little-endian byte-order, otherwise you will get undefined behaviour.
     pub unsafe fn from_utf16le_unchecked(raw: &[u8]) -> &Self {
-        Self::from_utf16_unchecked(raw)
+        unsafe { Self::from_utf16_unchecked(raw) }
     }
 
     /// Creates a new `&mut WStr<LE>`.
@@ -53,7 +53,7 @@ impl WStr<LittleEndian> {
     /// You must guarantee that the buffer passed in is encoded correctly as UTF-16 with
     /// little-endian byte-order, otherwise you will get undefined behaviour.
     pub unsafe fn from_utf16le_unchecked_mut(raw: &mut [u8]) -> &mut Self {
-        Self::from_utf16_unchecked_mut(raw)
+        unsafe { Self::from_utf16_unchecked_mut(raw) }
     }
 }
 
@@ -89,7 +89,7 @@ impl WStr<BigEndian> {
     /// You must guarantee that the buffer passed in is encoded correctly as UTF-16 with
     /// big-endian byte-order, otherwise you will get undefined behaviour.
     pub unsafe fn from_utf16be_unchecked(raw: &[u8]) -> &Self {
-        Self::from_utf16_unchecked(raw)
+        unsafe { Self::from_utf16_unchecked(raw) }
     }
 
     /// Creates a new `&mut WStr<BE>`.
@@ -99,7 +99,7 @@ impl WStr<BigEndian> {
     /// You must guarantee that the buffer passed in is encoded correctly as UTF-16 with
     /// big-endian byte-order, otherwise you will get undefined behaviour.
     pub unsafe fn from_utf16be_unchecked_mut(raw: &mut [u8]) -> &mut Self {
-        Self::from_utf16_unchecked_mut(raw)
+        unsafe { Self::from_utf16_unchecked_mut(raw) }
     }
 }
 
@@ -130,7 +130,7 @@ where
     /// You must guarantee that the buffer passed in is encoded correctly otherwise you will
     /// get undefined behaviour.  Be aware of the byte-level endianess.
     pub unsafe fn from_utf16_unchecked(raw: &[u8]) -> &Self {
-        &*(raw as *const [u8] as *const Self)
+        unsafe { &*(raw as *const [u8] as *const Self) }
     }
 
     /// Like [`WStr::from_utf16_unchecked`] but return a mutable reference.
@@ -140,7 +140,7 @@ where
     /// You must guarantee that the buffer passed in is encoded correctly otherwise you will
     /// get undefined behaviour.
     pub unsafe fn from_utf16_unchecked_mut(raw: &mut [u8]) -> &mut Self {
-        &mut *(raw as *mut [u8] as *mut Self)
+        unsafe { &mut *(raw as *mut [u8] as *mut Self) }
     }
 
     /// The length in bytes, not chars or graphemes.
@@ -239,7 +239,7 @@ where
     where
         I: SliceIndex<WStr<E>>,
     {
-        index.get_unchecked(self)
+        unsafe { index.get_unchecked(self) }
     }
 
     /// Returns a mutable subslice of `self`.
@@ -256,7 +256,7 @@ where
     where
         I: SliceIndex<WStr<E>>,
     {
-        index.get_unchecked_mut(self)
+        unsafe { index.get_unchecked_mut(self) }
     }
 
     /// Returns an iterator of the [`char`]s of a string slice.

@@ -135,16 +135,16 @@ where
 
     #[inline]
     unsafe fn get_unchecked(self, slice: &WStr<E>) -> &Self::Output {
-        let ptr = slice.as_ptr().add(self.start);
+        let ptr = unsafe { slice.as_ptr().add(self.start) };
         let len = self.end - self.start;
-        WStr::from_utf16_unchecked(std::slice::from_raw_parts(ptr, len))
+        unsafe { WStr::from_utf16_unchecked(std::slice::from_raw_parts(ptr, len)) }
     }
 
     #[inline]
     unsafe fn get_unchecked_mut(self, slice: &mut WStr<E>) -> &mut Self::Output {
-        let ptr = slice.as_mut_ptr().add(self.start);
+        let ptr = unsafe { slice.as_mut_ptr().add(self.start) };
         let len = self.end - self.start;
-        WStr::from_utf16_unchecked_mut(std::slice::from_raw_parts_mut(ptr, len))
+        unsafe { WStr::from_utf16_unchecked_mut(std::slice::from_raw_parts_mut(ptr, len)) }
     }
 
     #[inline]
@@ -186,13 +186,13 @@ where
     #[inline]
     unsafe fn get_unchecked(self, slice: &WStr<E>) -> &Self::Output {
         let ptr = slice.as_ptr();
-        WStr::from_utf16_unchecked(std::slice::from_raw_parts(ptr, self.end))
+        unsafe { WStr::from_utf16_unchecked(std::slice::from_raw_parts(ptr, self.end)) }
     }
 
     #[inline]
     unsafe fn get_unchecked_mut(self, slice: &mut WStr<E>) -> &mut Self::Output {
         let ptr = slice.as_mut_ptr();
-        WStr::from_utf16_unchecked_mut(std::slice::from_raw_parts_mut(ptr, self.end))
+        unsafe { WStr::from_utf16_unchecked_mut(std::slice::from_raw_parts_mut(ptr, self.end)) }
     }
 
     #[inline]
@@ -233,16 +233,16 @@ where
 
     #[inline]
     unsafe fn get_unchecked(self, slice: &WStr<E>) -> &Self::Output {
-        let ptr = slice.as_ptr().add(self.start);
+        let ptr = unsafe { slice.as_ptr().add(self.start) };
         let len = slice.len() - self.start;
-        WStr::from_utf16_unchecked(std::slice::from_raw_parts(ptr, len))
+        unsafe { WStr::from_utf16_unchecked(std::slice::from_raw_parts(ptr, len)) }
     }
 
     #[inline]
     unsafe fn get_unchecked_mut(self, slice: &mut WStr<E>) -> &mut Self::Output {
-        let ptr = slice.as_mut_ptr().add(self.start);
+        let ptr = unsafe { slice.as_mut_ptr().add(self.start) };
         let len = slice.len() - self.start;
-        WStr::from_utf16_unchecked_mut(std::slice::from_raw_parts_mut(ptr, len))
+        unsafe { WStr::from_utf16_unchecked_mut(std::slice::from_raw_parts_mut(ptr, len)) }
     }
 
     #[inline]
@@ -283,12 +283,12 @@ where
 
     #[inline]
     unsafe fn get_unchecked(self, slice: &WStr<E>) -> &Self::Output {
-        (*self.start()..self.end() + 1).get_unchecked(slice)
+        unsafe { (*self.start()..self.end() + 1).get_unchecked(slice) }
     }
 
     #[inline]
     unsafe fn get_unchecked_mut(self, slice: &mut WStr<E>) -> &mut Self::Output {
-        (*self.start()..self.end() + 1).get_unchecked_mut(slice)
+        unsafe { (*self.start()..self.end() + 1).get_unchecked_mut(slice) }
     }
 
     #[inline]
@@ -335,12 +335,12 @@ where
 
     #[inline]
     unsafe fn get_unchecked(self, slice: &WStr<E>) -> &Self::Output {
-        (..self.end + 1).get_unchecked(slice)
+        unsafe { (..self.end + 1).get_unchecked(slice) }
     }
 
     #[inline]
     unsafe fn get_unchecked_mut(self, slice: &mut WStr<E>) -> &mut Self::Output {
-        (..self.end + 1).get_unchecked_mut(slice)
+        unsafe { (..self.end + 1).get_unchecked_mut(slice) }
     }
 
     #[inline]
