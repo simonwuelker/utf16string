@@ -120,7 +120,7 @@ pub struct Utf16Error {
 /// let s1: WString<LittleEndian> = From::from("hello");
 /// assert_eq!(s0, s1);
 /// ```
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct WString<E: ByteOrder> {
     buf: Vec<u8>,
     _endian: PhantomData<E>,
