@@ -5,11 +5,13 @@
 
 use byteorder::ByteOrder;
 
+use std::fmt;
 use std::iter::FusedIterator;
 
 use crate::utilities::{
     Utf16CharExt, decode_surrogates, is_leading_surrogate, is_trailing_surrogate,
 };
+use crate::{Pattern, ReverseSearcher, Searcher, WStr};
 use crate::{WStrCharIndices, WStrChars};
 
 impl<'a, E> Iterator for WStrChars<'a, E>
@@ -118,6 +120,178 @@ where
 }
 
 impl<'a, E> FusedIterator for WStrCharIndices<'a, E> where E: ByteOrder {}
+
+pub struct Split<'a, E, P>
+where
+    E: 'a + ByteOrder,
+    P: Pattern<E>,
+{
+    pub(super) start: usize,
+    pub(super) end: usize,
+    pub(super) matcher: P::Searcher<'a>,
+    pub(super) allow_trailing_empty: bool,
+    pub(super) finished: bool,
+}
+
+impl<'a, E, P> fmt::Debug for Split<'a, E, P>
+where
+    E: 'a + ByteOrder,
+    P: Pattern<E, Searcher<'a>: fmt::Debug>,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Split")
+            .field("start", &self.start)
+            .field("end", &self.end)
+            .field("matcher", &self.matcher)
+            .field("allow_trailing_empty", &self.allow_trailing_empty)
+            .field("finished", &self.finished)
+            .finish()
+    }
+}
+
+impl<'a, E, P> Iterator for Split<'a, E, P>
+where
+    E: 'a + ByteOrder,
+    P: Pattern<E>,
+{
+    type Item = &'a WStr<E>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            return None;
+        }
+
+        let haystack = self.matcher.haystack();
+        match self.matcher.next_match() {
+            Some((a, b)) => {
+                let elt = &haystack[self.start..a];
+                self.start = b;
+                Some(elt)
+            }
+            None => self.get_end(),
+        }
+    }
+}
+
+impl<'a, E, P> DoubleEndedIterator for Split<'a, E, P>
+where
+    E: 'a + ByteOrder,
+    P: Pattern<E>,
+    P::Searcher<'a>: ReverseSearcher<'a, E>,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            return None;
+        }
+
+        if !self.allow_trailing_empty {
+            self.allow_trailing_empty = true;
+            match self.next_back() {
+                Some(elt) if !elt.is_empty() => return Some(elt),
+                _ => {
+                    if self.finished {
+                        return None;
+                    }
+                }
+            }
+        }
+
+        let haystack = self.matcher.haystack();
+        match self.matcher.next_match_back() {
+            Some((a, b)) => {
+                let elt = &haystack[b..self.end];
+                self.end = a;
+                Some(elt)
+            }
+            None => {
+                self.finished = true;
+                Some(&haystack[self.start..self.end])
+            }
+        }
+    }
+}
+
+impl<'a, E, P> Split<'a, E, P>
+where
+    E: 'a + ByteOrder,
+    P: Pattern<E>,
+{
+    #[inline]
+    fn get_end(&mut self) -> Option<&'a WStr<E>> {
+        if !self.finished {
+            self.finished = true;
+
+            if self.allow_trailing_empty || self.end - self.start > 0 {
+                let string = &self.matcher.haystack()[self.start..self.end];
+                return Some(string);
+            }
+        }
+
+        None
+    }
+
+    #[inline]
+    pub fn next_inclusive(&mut self) -> Option<&'a WStr<E>> {
+        if self.finished {
+            return None;
+        }
+
+        let haystack = self.matcher.haystack();
+        match self.matcher.next_match() {
+            Some((_, b)) => {
+                let elt = &haystack[self.start..b];
+                self.start = b;
+                Some(elt)
+            }
+            None => self.get_end(),
+        }
+    }
+
+    #[inline]
+    pub fn next_back_inclusive(&mut self) -> Option<&'a WStr<E>>
+    where
+        P::Searcher<'a>: ReverseSearcher<'a, E>,
+    {
+        if self.finished {
+            return None;
+        }
+
+        if !self.allow_trailing_empty {
+            self.allow_trailing_empty = true;
+            match self.next_back_inclusive() {
+                Some(elt) if !elt.is_empty() => return Some(elt),
+                _ => {
+                    if self.finished {
+                        return None;
+                    }
+                }
+            }
+        }
+
+        let haystack = self.matcher.haystack();
+        match self.matcher.next_match_back() {
+            Some((_, b)) => {
+                let elt = &haystack[b..self.end];
+                self.end = b;
+                Some(elt)
+            }
+            None => {
+                self.finished = true;
+                Some(&haystack[self.start..self.end])
+            }
+        }
+    }
+
+    #[inline]
+    pub fn remainder(&self) -> Option<&'a WStr<E>> {
+        // `Self::get_end` doesn't change `self.start`
+        if self.finished {
+            return None;
+        }
+
+        Some(&self.matcher.haystack()[self.start..self.end])
+    }
+}
 
 #[cfg(test)]
 mod tests {

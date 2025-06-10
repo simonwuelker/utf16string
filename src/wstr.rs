@@ -8,6 +8,7 @@ use std::iter::FusedIterator;
 
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
+use crate::iters::Split;
 use crate::slicing::SliceIndex;
 use crate::utilities::{is_trailing_surrogate, validate_raw_utf16};
 use crate::{Pattern, ReverseSearcher, Searcher, Utf16Error, WStr, WStrCharIndices, WStrChars};
@@ -297,6 +298,18 @@ where
     #[inline]
     pub fn match_indices<P: Pattern<E>>(&self, pat: P) -> MatchIndices<'_, E, P> {
         MatchIndices(pat.into_searcher(self))
+    }
+
+    #[inline]
+
+    pub fn split<P: Pattern<E>>(&self, pat: P) -> Split<'_, E, P> {
+        Split {
+            start: 0,
+            end: self.len(),
+            matcher: pat.into_searcher(self),
+            allow_trailing_empty: true,
+            finished: false,
+        }
     }
 }
 
