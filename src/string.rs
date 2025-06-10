@@ -423,6 +423,16 @@ where
     }
 }
 
+impl<E> From<String> for Utf16String<E>
+where
+    E: ByteOrder,
+{
+    #[inline]
+    fn from(source: String) -> Self {
+        Self::from(source.as_str())
+    }
+}
+
 impl<E> From<&mut str> for Utf16String<E>
 where
     E: ByteOrder,
