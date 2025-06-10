@@ -31,18 +31,6 @@
 //! `WString<ByteOrder>` and `WStr<ByteOrder>` commonly written as `WString<E>` and
 //! `WStr<E>` where `E` stands for "endianess".
 //!
-//! This crate exports [`BigEndian`], [`BE`], [`LittleEndian`] and [`LE`] in case you need
-//! to denote the type:
-//!
-//! ```
-//! use utf16string::{BigEndian, BE, WString};
-//!
-//! let s0: WString<BigEndian> = WString::from("hello");
-//! assert_eq!(s0.len(), 10);
-//!
-//! let s1: WString<BE> = WString::from("hello");
-//! assert_eq!(s0, s1);
-//! ```
 //!
 //! As these types can often be a bit cumbersome to write they can often be inferred,
 //! especially with the help of the shorthand constructors like [`WString::from_utf16le`],
@@ -51,7 +39,8 @@
 //!
 //! ```
 //! # use std::error::Error;
-//! use utf16string::{LE, WStr};
+//! use utf16string::WStr;
+//! use byteorder::LE;
 //!
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! let b = b"h\x00e\x00l\x00l\x00o\x00";
@@ -89,7 +78,7 @@ mod macros;
 #[doc(inline)]
 pub use crate::slicing::SliceIndex;
 pub use macros::CodePointIterator;
-pub use pattern::{Pattern, Searcher};
+pub use pattern::{Pattern, ReverseSearcher, Searcher};
 
 /// Error for invalid UTF-16 encoded bytes.
 #[derive(Debug, Copy, Clone)]
@@ -104,7 +93,8 @@ pub struct Utf16Error {
 ///
 /// ```
 /// # use std::error::Error;
-/// use utf16string::{LE, WString};
+/// use utf16string::WString;
+/// use byteorder::LE;
 ///
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// let v = Vec::from(&b"h\x00e\x00l\x00l\x00o\x00"[..]);
@@ -121,18 +111,19 @@ pub struct Utf16Error {
 /// Converting from valid Unicode is infallible:
 ///
 /// ```
-/// use utf16string::{LE, WString};
+/// use utf16string::WString;
+/// use byteorder::LittleEndian;
 ///
-/// let s0: WString<LE> = WString::from("hello");
+/// let s0: WString<LittleEndian> = WString::from("hello");
 /// assert_eq!(s0.len(), 10);
 ///
-/// let s1: WString<LE> = From::from("hello");
+/// let s1: WString<LittleEndian> = From::from("hello");
 /// assert_eq!(s0, s1);
 /// ```
 #[derive(Debug, Eq, PartialEq, Hash)]
-pub struct WString<E: 'static + ByteOrder> {
+pub struct WString<E: ByteOrder> {
     buf: Vec<u8>,
-    _endian: PhantomData<&'static E>,
+    _endian: PhantomData<E>,
 }
 
 /// A UTF-16 [`str`]-like type with little- or big-endian byte order.
@@ -144,11 +135,12 @@ pub struct WString<E: 'static + ByteOrder> {
 ///
 /// ```
 /// # use std::error::Error;
-/// use utf16string::{LE, WStr};
+/// use utf16string::WStr;
+/// use byteorder::LittleEndian;
 ///
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// let b = b"h\x00e\x00l\x00l\x00o\x00";
-/// let s: &WStr<LE> = WStr::from_utf16le(b)?;
+/// let s: &WStr<LittleEndian> = WStr::from_utf16le(b)?;
 ///
 /// let chars: Vec<char> = s.chars().collect();
 /// assert_eq!(chars, vec!['h', 'e', 'l', 'l', 'o']);
@@ -160,8 +152,8 @@ pub struct WString<E: 'static + ByteOrder> {
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 #[repr(transparent)]
-pub struct WStr<E: 'static + ByteOrder> {
-    _endian: PhantomData<&'static E>,
+pub struct WStr<E: ByteOrder> {
+    _endian: PhantomData<E>,
     raw: [u8],
 }
 
@@ -170,9 +162,9 @@ pub struct WStr<E: 'static + ByteOrder> {
 /// The slice must contain valid UTF-16, otherwise this may panic or cause undefined
 /// behaviour.
 #[derive(Debug)]
-pub struct WStrChars<'a, E: 'static + ByteOrder> {
+pub struct WStrChars<'a, E: ByteOrder> {
     chunks: ChunksExact<'a, u8>,
-    _endian: PhantomData<&'static E>,
+    _endian: PhantomData<E>,
 }
 
 /// Iterator yielding `(index, char)` tuples from a UTF-16 little-endian encoded byte slice.
@@ -180,7 +172,7 @@ pub struct WStrChars<'a, E: 'static + ByteOrder> {
 /// The slice must contain valid UTF-16, otherwise this may panic or cause undefined
 /// behaviour.
 #[derive(Debug)]
-pub struct WStrCharIndices<'a, E: 'static + ByteOrder> {
+pub struct WStrCharIndices<'a, E: ByteOrder> {
     chars: WStrChars<'a, E>,
     index: usize,
 }

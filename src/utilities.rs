@@ -161,7 +161,8 @@ impl Utf16CharExt for char {
 mod tests {
     use super::*;
 
-    use crate::{LE, WStr};
+    use crate::WStr;
+    use byteorder::LE;
 
     #[test]
     fn test_is_leading_surrogate() {

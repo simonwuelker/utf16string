@@ -9,8 +9,9 @@ use std::ops::{Deref, DerefMut};
 
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
+use crate::pattern::Utf16Pattern;
 use crate::utilities::{Utf16CharExt, validate_raw_utf16};
-use crate::{Utf16Error, WStr, WString};
+use crate::{Pattern, Utf16Error, WStr, WString};
 
 impl WString<LittleEndian> {
     /// Creates a new [`WString`] from raw bytes in little-endian byte order.
@@ -341,6 +342,40 @@ where
     pub fn clear(&mut self) {
         self.buf.clear();
     }
+
+    /// Replaces all matches of a pattern with another string.
+    ///
+    /// `replace` creates a new [`String`], and copies the data from this string slice into it.
+    /// While doing so, it attempts to find matches of a pattern. If it finds any, it
+    /// replaces them with the replacement string slice.
+    ///
+    /// ## Example
+    /// ```rust
+    /// # use utf16string::utf16;
+    /// let foo = utf16!("I am a utf16 string").to_owned();
+    /// assert_eq!(foo.replace('a', utf16!("bar")).as_wstr(), utf16!("I barm bar utf16 string"));
+    /// ```
+    #[must_use = "this returns the replaced string as a new allocation, without modifying the original"]
+    #[inline]
+    pub fn replace<P: Pattern<E>>(&self, from: P, to: &WStr<E>) -> Self {
+        // Set result capacity to self.len() when from.len() <= to.len()
+        let default_capacity = match from.as_utf16_pattern() {
+            Some(Utf16Pattern::StringPattern(s)) if s.len() <= to.len() => self.len(),
+            Some(Utf16Pattern::CharPattern(c)) if c.len_utf16() <= to.len() => self.len(),
+            _ => 0,
+        };
+
+        let mut result = Self::with_capacity(default_capacity);
+        let mut last_end = 0;
+        for (start, part) in self.match_indices(from) {
+            result.push_wstr(unsafe { self.get_unchecked(last_end..start) });
+            result.push_wstr(to);
+            last_end = start + part.len();
+        }
+
+        result.push_wstr(unsafe { self.get_unchecked(last_end..self.len()) });
+        result
+    }
 }
 
 impl<E> Default for WString<E>
@@ -445,6 +480,8 @@ where
 #[cfg(test)]
 mod tests {
     use byteorder::{BE, LE};
+
+    use crate::utf16;
 
     use super::*;
 

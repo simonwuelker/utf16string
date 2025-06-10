@@ -3,31 +3,41 @@
 use crate::WStr;
 use byteorder::ByteOrder;
 
+pub enum Utf16Pattern<'a, E>
+where
+    E: ByteOrder,
+{
+    CharPattern(char),
+    StringPattern(&'a WStr<E>),
+}
+
 pub trait Pattern<E>: Sized
 where
     E: ByteOrder,
 {
-    type Searcher<'a>: Searcher<'a, E>;
+    type Searcher<'a>: Searcher<'a, E>
+    where
+        E: 'a;
 
     /// Constructs the associated searcher from
     /// `self` and the `haystack` to search in.
-    fn into_searcher(self, haystack: &str) -> Self::Searcher<'_>;
+    fn into_searcher(self, haystack: &WStr<E>) -> Self::Searcher<'_>;
 
     /// Checks whether the pattern matches anywhere in the haystack
     #[inline]
-    fn is_contained_in(self, haystack: &str) -> bool {
+    fn is_contained_in(self, haystack: &WStr<E>) -> bool {
         self.into_searcher(haystack).next_match().is_some()
     }
 
     /// Checks whether the pattern matches at the front of the haystack
     #[inline]
-    fn is_prefix_of(self, haystack: &str) -> bool {
+    fn is_prefix_of(self, haystack: &WStr<E>) -> bool {
         matches!(self.into_searcher(haystack).next(), SearchStep::Match(0, _))
     }
 
     /// Checks whether the pattern matches at the back of the haystack
     #[inline]
-    fn is_suffix_of<'a>(self, haystack: &'a str) -> bool
+    fn is_suffix_of<'a>(self, haystack: &'a WStr<E>) -> bool
     where
         Self::Searcher<'a>: ReverseSearcher<'a, E>,
     {
@@ -36,15 +46,15 @@ where
 
     /// Removes the pattern from the front of haystack, if it matches.
     #[inline]
-    fn strip_prefix_of(self, haystack: &str) -> Option<&str> {
+    fn strip_prefix_of(self, haystack: &WStr<E>) -> Option<&WStr<E>> {
         if let SearchStep::Match(start, len) = self.into_searcher(haystack).next() {
             debug_assert_eq!(
                 start, 0,
                 "The first search step from Searcher \
                     must include the first character"
             );
-            // SAFETY: `Searcher` is known to return valid indices.
-            unsafe { Some(haystack.get_unchecked(len..)) }
+
+            Some(&haystack[len..])
         } else {
             None
         }
@@ -52,7 +62,7 @@ where
 
     /// Removes the pattern from the back of haystack, if it matches.
     #[inline]
-    fn strip_suffix_of<'a>(self, haystack: &'a str) -> Option<&'a str>
+    fn strip_suffix_of<'a>(self, haystack: &'a WStr<E>) -> Option<&'a WStr<E>>
     where
         Self::Searcher<'a>: ReverseSearcher<'a, E>,
     {
@@ -63,11 +73,14 @@ where
                 "The first search step from ReverseSearcher \
                     must include the last character"
             );
-            // SAFETY: `Searcher` is known to return valid indices.
-            unsafe { Some(haystack.get_unchecked(..start)) }
+            Some(&haystack[..start])
         } else {
             None
         }
+    }
+
+    fn as_utf16_pattern(&self) -> Option<Utf16Pattern<'_, E>> {
+        None
     }
 }
 
@@ -212,11 +225,46 @@ pub enum SearchStep {
     Done,
 }
 
+impl<E> Pattern<E> for char
+where
+    E: ByteOrder,
+{
+    type Searcher<'a>
+        = CharSearcher<'a, E>
+    where
+        E: 'a;
+
+    #[inline]
+    fn into_searcher<'a>(self, haystack: &'a WStr<E>) -> Self::Searcher<'a> {
+        let mut utf16_encoded = [0; 2];
+        let mut utf16_bytes = [0; 4];
+        let utf16_size = (self.encode_utf16(&mut utf16_encoded).len() * 2)
+            .try_into()
+            .expect("char len should be less than 255");
+        E::write_u16(&mut utf16_bytes[0..2], utf16_encoded[0]);
+        E::write_u16(&mut utf16_bytes[2..4], utf16_encoded[1]);
+
+        CharSearcher {
+            haystack,
+            finger: 0,
+            finger_back: haystack.len(),
+            needle: self,
+            utf16_size,
+            utf16_encoded: utf16_bytes,
+        }
+    }
+
+    #[inline]
+    fn as_utf16_pattern(&self) -> Option<Utf16Pattern<'_, E>> {
+        Some(Utf16Pattern::CharPattern(*self))
+    }
+}
+
 /// Associated type for `<char as Pattern>::Searcher<'a>`.
 #[derive(Clone, Debug)]
 pub struct CharSearcher<'a, E>
 where
-    E: 'static + ByteOrder,
+    E: 'a + ByteOrder,
 {
     haystack: &'a WStr<E>,
     /// `finger` is the current byte index of the forward search.
@@ -306,7 +354,7 @@ where
                 //
                 // We only exit this method when we reach the end of the string, or if we
                 // find something. When we find something the `finger` will be set
-                // to a UTF8 boundary.
+                // to a UTF16 boundary.
                 self.finger += index + 1;
                 if self.finger >= self.utf16_size() {
                     let found_char = self.finger - self.utf16_size();

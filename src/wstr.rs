@@ -4,12 +4,13 @@
 //! implementations live here.
 
 use std::fmt;
+use std::iter::FusedIterator;
 
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
 use crate::slicing::SliceIndex;
 use crate::utilities::{is_trailing_surrogate, validate_raw_utf16};
-use crate::{Utf16Error, WStr, WStrCharIndices, WStrChars};
+use crate::{Pattern, ReverseSearcher, Searcher, Utf16Error, WStr, WStrCharIndices, WStrChars};
 
 impl WStr<LittleEndian> {
     /// Creates a new `&WStr<LE>`.
@@ -30,10 +31,11 @@ impl WStr<LittleEndian> {
     /// # Example
     ///
     /// ```
-    /// use utf16string::{LE, WStr};
+    /// use utf16string::WStr;
+    /// use byteorder::LittleEndian;
     ///
     /// let b = b"h\x00i\x00";
-    /// let s: &WStr<LE> = unsafe { WStr::from_utf16_unchecked(b) };
+    /// let s: &WStr<LittleEndian> = unsafe { WStr::from_utf16_unchecked(b) };
     /// let t = unsafe { WStr::from_utf16le_unchecked(b) };
     /// assert_eq!(s, t);
     /// ```
@@ -76,7 +78,8 @@ impl WStr<BigEndian> {
     /// # Example
     ///
     /// ```
-    /// use utf16string::{BE, WStr};
+    /// use utf16string::WStr;
+    /// use byteorder::BE;
     ///
     /// let b = b"h\x00i\x00";
     /// let s: &WStr<BE> = unsafe { WStr::from_utf16_unchecked(b) };
@@ -285,6 +288,16 @@ where
     pub const fn is_ascii(&self) -> bool {
         self.as_bytes().is_ascii()
     }
+
+    /// Returns an iterator over the disjoint matches of a pattern within this string
+    /// slice as well as the index that the match starts at.
+    ///
+    /// For matches of `pat` within `self` that overlap, only the indices
+    /// corresponding to the first match are returned.
+    #[inline]
+    pub fn match_indices<P: Pattern<E>>(&self, pat: P) -> MatchIndices<'_, E, P> {
+        MatchIndices(pat.into_searcher(self))
+    }
 }
 
 impl<E> AsRef<[u8]> for WStr<E>
@@ -303,6 +316,54 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.to_utf8())
+    }
+}
+
+pub struct MatchIndices<'a, E: 'a + ByteOrder, P: Pattern<E>>(pub(super) P::Searcher<'a>);
+
+impl<'a, E, P> Iterator for MatchIndices<'a, E, P>
+where
+    E: 'a + ByteOrder,
+    P: Pattern<E>,
+{
+    type Item = (usize, &'a WStr<E>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0
+            .next_match()
+            .map(|(start, end)| (start, &self.0.haystack()[start..end]))
+    }
+}
+
+impl<'a, E, P> DoubleEndedIterator for MatchIndices<'a, E, P>
+where
+    E: 'a + ByteOrder,
+    P: Pattern<E>,
+    P::Searcher<'a>: ReverseSearcher<'a, E>,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.0
+            .next_match_back()
+            .map(|(start, end)| (start, &self.0.haystack()[start..end]))
+    }
+}
+
+impl<'a, E, P> FusedIterator for MatchIndices<'a, E, P>
+where
+    E: 'a + ByteOrder,
+    P: Pattern<E>,
+{
+}
+
+impl<'a, E, P> fmt::Debug for MatchIndices<'a, E, P>
+where
+    E: 'a + ByteOrder,
+    P: Pattern<E, Searcher<'a>: fmt::Debug>,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("MatchIndices")
+            .field(&self.0)
+            .finish()
     }
 }
 
