@@ -477,6 +477,19 @@ where
     }
 }
 
+impl<'a, E> FromIterator<&'a WStr<E>> for WString<E>
+where
+    E: ByteOrder,
+{
+    fn from_iter<T: IntoIterator<Item = &'a WStr<E>>>(iter: T) -> Self {
+        let mut result: WString<E> = Default::default();
+        for element in iter {
+            result.push_wstr(element);
+        }
+        result
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use byteorder::{BE, LE};
