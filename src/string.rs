@@ -490,6 +490,14 @@ where
     }
 }
 
+impl<E> From<char> for Utf16String<E>
+where E: ByteOrder {
+    fn from(value: char) -> Self {
+        let mut result = Self::default();
+        result.push(value);
+        result
+    }
+}
 #[cfg(test)]
 mod tests {
     use byteorder::{BE, LE};
