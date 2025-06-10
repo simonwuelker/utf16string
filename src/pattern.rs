@@ -374,3 +374,46 @@ where
 
     // let next_reject use the default implementation from the Searcher trait
 }
+
+/// Non-allocating substring search
+impl<'needle, E> Pattern<E> for &'needle Utf16Str<E>
+where E: ByteOrder {
+    type Searcher<'haystack> = Utf16StrSearcher<'haystack, 'needle, E>
+    where E: 'haystack ;
+
+    fn into_searcher(self, haystack: &Utf16Str<E>) -> Self::Searcher<'_> {
+        Utf16StrSearcher {
+            haystack,
+            needle: self,
+            position:0,
+        }
+    }
+}
+
+impl<'a, 'needle, E> Searcher<'a, E> for Utf16StrSearcher<'a, 'needle, E>
+where E: ByteOrder {
+    fn haystack(&self) -> &'a Utf16Str<E> {
+        self.haystack
+    }
+
+    fn next(&mut self) -> SearchStep {
+        // FIXME: Use a better algorithm here
+        let remaining = &self.haystack[self.position..];
+        let Some(next_start) = remaining.as_bytes().windows(self.needle.len()).position(|window| window == self.needle.as_bytes()) else {
+            return SearchStep::Done;
+        };
+
+        if next_start == 0 {
+            SearchStep::Match(self.position, self.position + self.needle.len())
+        } else {
+            SearchStep::Reject(self.position, self.position + next_start)
+        }
+    }
+}
+
+pub struct Utf16StrSearcher<'haystack, 'needle, E>
+where E: ByteOrder, {
+    haystack: &'haystack Utf16Str<E>,
+    needle: &'needle Utf16Str<E>,
+    position: usize,
+}
