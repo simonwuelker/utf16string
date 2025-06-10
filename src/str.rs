@@ -177,6 +177,23 @@ where
         !is_trailing_surrogate(code_unit)
     }
 
+    /// Returns `true` if the index into the bytes is on a char boundary.
+    ///
+    /// ## Examples
+    /// ```rust
+    /// # use utf16string::utf16;
+    /// let foo = utf16!("f\u{10ABCD}");
+    /// assert!(foo.is_code_unit_boundary(0));
+    /// assert!(foo.is_code_unit_boundary(2));
+    /// assert!(foo.is_code_unit_boundary(4));
+    /// assert!(foo.is_code_unit_boundary(6));
+    /// assert!(!foo.is_code_unit_boundary(5));
+    /// assert!(!foo.is_code_unit_boundary(7));
+    #[inline]
+    pub fn is_code_unit_boundary(&self, index: usize) -> bool {
+        index % 2 == 0 && index <= self.len()
+    }
+
     /// Converts to a byte slice.
     #[inline]
     pub const fn as_bytes(&self) -> &[u8] {
@@ -394,9 +411,7 @@ where
     P: Pattern<E, Searcher<'a>: fmt::Debug>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("MatchIndices")
-            .field(&self.0)
-            .finish()
+        f.debug_tuple("MatchIndices").field(&self.0).finish()
     }
 }
 

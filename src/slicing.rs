@@ -215,7 +215,7 @@ where
 
     #[inline]
     fn get(self, slice: &Utf16Str<E>) -> Option<&Self::Output> {
-        if slice.is_char_boundary(self.start) {
+        if slice.is_code_unit_boundary(self.start) {
             Some(unsafe { self.get_unchecked(slice) })
         } else {
             None
@@ -224,7 +224,7 @@ where
 
     #[inline]
     fn get_mut(self, slice: &mut Utf16Str<E>) -> Option<&mut Self::Output> {
-        if slice.is_char_boundary(self.start) {
+        if slice.is_code_unit_boundary(self.start) {
             Some(unsafe { self.get_unchecked_mut(slice) })
         } else {
             None
@@ -413,7 +413,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_wstr_range() {
+    fn test_utf16_str_range() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
         let s = Utf16Str::from_utf16le(b).unwrap();
         let t = &s[2..8];
@@ -422,7 +422,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wstr_range_to() {
+    fn test_utf16_str_range_to() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
         let s = Utf16Str::from_utf16le(b).unwrap();
         let t = &s[..8];
@@ -431,7 +431,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wstr_range_from() {
+    fn test_utf16_str_range_from() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
         let s = Utf16Str::from_utf16le(b).unwrap();
         let t = &s[2..];
@@ -440,7 +440,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wstr_range_full() {
+    fn test_utf16_str_range_full() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
         let s = Utf16Str::from_utf16le(b).unwrap();
         let t = &s[..];
@@ -449,7 +449,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wstr_range_inclusive() {
+    fn test_utf16_str_range_inclusive() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
         let s = Utf16Str::from_utf16le(b).unwrap();
         let t = &s[2..=7];
@@ -458,7 +458,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wstr_range_to_inclusive() {
+    fn test_utf16_str_range_to_inclusive() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
         let s = Utf16Str::from_utf16le(b).unwrap();
         let t = &s[..=7];
@@ -467,7 +467,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wstring_range() {
+    fn test_utf16_string_range() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
         let s = Utf16String::from_utf16le(b.to_vec()).unwrap();
         let t = &s[2..8];
@@ -476,7 +476,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wstring_range_to() {
+    fn test_utf16_string_range_to() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
         let s = Utf16String::from_utf16le(b.to_vec()).unwrap();
         let t = &s[..8];
@@ -485,7 +485,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wstring_range_from() {
+    fn test_utf16_string_range_from() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
         let s = Utf16String::from_utf16le(b.to_vec()).unwrap();
         let t = &s[2..];
@@ -494,7 +494,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wstring_range_full() {
+    fn test_utf16_string_range_full() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
         let s = Utf16String::from_utf16le(b.to_vec()).unwrap();
         let t = &s[..];
@@ -503,7 +503,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wstring_range_inclusive() {
+    fn test_utf16_string_range_inclusive() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
         let s = Utf16String::from_utf16le(b.to_vec()).unwrap();
         let t = &s[2..=7];
@@ -512,7 +512,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wstring_range_to_inclusive() {
+    fn test_utf16_string_range_to_inclusive() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
         let s = Utf16String::from_utf16le(b.to_vec()).unwrap();
         let t = &s[..=7];
