@@ -501,7 +501,9 @@ where
 }
 
 impl<E> From<char> for Utf16String<E>
-where E: ByteOrder {
+where
+    E: ByteOrder,
+{
     fn from(value: char) -> Self {
         let mut result = Self::default();
         result.push(value);

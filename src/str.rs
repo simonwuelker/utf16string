@@ -303,7 +303,6 @@ where
     }
 
     #[inline]
-
     pub fn split<P: Pattern<E>>(&self, pat: P) -> Split<'_, E, P> {
         Split {
             start: 0,
@@ -312,6 +311,25 @@ where
             allow_trailing_empty: true,
             finished: false,
         }
+    }
+
+    /// Return the number of [code units] in this string.
+    ///
+    /// ## Examples
+    /// ```rust
+    /// # use utf16string::utf16;
+    /// // Code points below 2^16 are encoded as a single code unit.
+    /// let simple = utf16!("foobar");
+    /// assert_eq!(simple.number_of_code_units(), 6);
+    ///
+    /// // Higher code points use two code units.
+    /// let simple = utf16!("\u{10000}foo\u{10FFFF}");
+    /// assert_eq!(simple.number_of_code_units(), 7);
+    ///
+    /// ```
+    /// [code units]: https://infra.spec.whatwg.org/#code-unit
+    pub fn number_of_code_units(&self) -> usize {
+        self.len() / 2
     }
 }
 

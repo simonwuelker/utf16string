@@ -377,21 +377,27 @@ where
 
 /// Non-allocating substring search
 impl<'needle, E> Pattern<E> for &'needle Utf16Str<E>
-where E: ByteOrder {
-    type Searcher<'haystack> = Utf16StrSearcher<'haystack, 'needle, E>
-    where E: 'haystack ;
+where
+    E: ByteOrder,
+{
+    type Searcher<'haystack>
+        = Utf16StrSearcher<'haystack, 'needle, E>
+    where
+        E: 'haystack;
 
     fn into_searcher(self, haystack: &Utf16Str<E>) -> Self::Searcher<'_> {
         Utf16StrSearcher {
             haystack,
             needle: self,
-            position:0,
+            position: 0,
         }
     }
 }
 
 impl<'a, 'needle, E> Searcher<'a, E> for Utf16StrSearcher<'a, 'needle, E>
-where E: ByteOrder {
+where
+    E: ByteOrder,
+{
     fn haystack(&self) -> &'a Utf16Str<E> {
         self.haystack
     }
@@ -399,7 +405,11 @@ where E: ByteOrder {
     fn next(&mut self) -> SearchStep {
         // FIXME: Use a better algorithm here
         let remaining = &self.haystack[self.position..];
-        let Some(next_start) = remaining.as_bytes().windows(self.needle.len()).position(|window| window == self.needle.as_bytes()) else {
+        let Some(next_start) = remaining
+            .as_bytes()
+            .windows(self.needle.len())
+            .position(|window| window == self.needle.as_bytes())
+        else {
             return SearchStep::Done;
         };
 
@@ -412,7 +422,9 @@ where E: ByteOrder {
 }
 
 pub struct Utf16StrSearcher<'haystack, 'needle, E>
-where E: ByteOrder, {
+where
+    E: ByteOrder,
+{
     haystack: &'haystack Utf16Str<E>,
     needle: &'needle Utf16Str<E>,
     position: usize,
