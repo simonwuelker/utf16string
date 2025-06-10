@@ -1,22 +1,22 @@
 //! A UTF-16 little-endian string type.
 //!
 //! This crate provides two string types to handle UTF-16 encoded bytes directly as strings:
-//! [`WString`] and [`WStr`].  They are to UTF-16 exactly like [`String`] and [`str`] are to
+//! [`Utf16String`] and [`Utf16Str`].  They are to UTF-16 exactly like [`String`] and [`str`] are to
 //! UTF-8.  Some of the concepts and functions here are rather tersely documented, in this
 //! case you can look up their equivalents on [`String`] or [`str`] and the behaviour should
 //! be exactly the same, only the underlying byte encoding is different.
 //!
-//! Thus [`WString`] is a type which owns the bytes containing the string.  Just like
+//! Thus [`Utf16String`] is a type which owns the bytes containing the string.  Just like
 //! [`String`] and the underlying [`Vec`] it is built on, it distinguishes length
-//! ([`WString::len`]) and capacity ([`String::capacity`]).  Here length is the number of
+//! ([`Utf16String::len`]) and capacity ([`String::capacity`]).  Here length is the number of
 //! bytes used while capacity is the number of bytes the string can grow withouth
 //! reallocating.
 //!
-//! The [`WStr`] type does not own any bytes, it can only point to a slice of bytes
-//! containing valid UTF-16.  As such you will only ever use it as a reference like `&WStr`,
+//! The [`Utf16Str`] type does not own any bytes, it can only point to a slice of bytes
+//! containing valid UTF-16.  As such you will only ever use it as a reference like `&Utf16Str`,
 //! just you you only use [`str`] as `&str`.
 //!
-//! The [`WString`] type implements `Deref<Target = WStr<ByteOrder>`
+//! The [`Utf16String`] type implements `Deref<Target = Utf16Str<ByteOrder>`
 //!
 //! # UTF-16 ByteOrder
 //!
@@ -28,25 +28,25 @@
 //!
 //! For this crate this means the types need to be aware of the byte order, which is done
 //! using the [`byteorder::ByteOrder`] trait as a generic parameter to the types:
-//! `WString<ByteOrder>` and `WStr<ByteOrder>` commonly written as `WString<E>` and
-//! `WStr<E>` where `E` stands for "endianess".
+//! `Utf16String<ByteOrder>` and `Utf16Str<ByteOrder>` commonly written as `Utf16String<E>` and
+//! `Utf16Str<E>` where `E` stands for "endianess".
 //!
 //!
 //! As these types can often be a bit cumbersome to write they can often be inferred,
-//! especially with the help of the shorthand constructors like [`WString::from_utf16le`],
-//! [`WString::from_utf16be`], [`WStr::from_utf16le`], [`WStr::from_utf16be`] and related.
+//! especially with the help of the shorthand constructors like [`Utf16String::from_utf16le`],
+//! [`Utf16String::from_utf16be`], [`Utf16Str::from_utf16le`], [`Utf16Str::from_utf16be`] and related.
 //! For example:
 //!
 //! ```
 //! # use std::error::Error;
-//! use utf16string::WStr;
+//! use utf16string::Utf16Str;
 //! use byteorder::LE;
 //!
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! let b = b"h\x00e\x00l\x00l\x00o\x00";
 //!
-//! let s0: &WStr<LE> = WStr::from_utf16(b)?;
-//! let s1 = WStr::from_utf16le(b)?;
+//! let s0: &Utf16Str<LE> = Utf16Str::from_utf16(b)?;
+//! let s1 = Utf16Str::from_utf16le(b)?;
 //!
 //! assert_eq!(s0, s1);
 //! assert_eq!(s0.to_utf8(), "hello");
@@ -61,7 +61,7 @@
     clippy::all
 )]
 
-use byteorder::ByteOrder;
+use byteorder::{ByteOrder, NativeEndian};
 use std::marker::PhantomData;
 use std::slice::ChunksExact;
 
@@ -69,9 +69,9 @@ mod error;
 mod iters;
 mod pattern;
 mod slicing;
+mod str;
+mod string;
 mod utilities;
-mod wstr;
-mod wstring;
 #[macro_use]
 mod macros;
 
@@ -93,12 +93,11 @@ pub struct Utf16Error {
 ///
 /// ```
 /// # use std::error::Error;
-/// use utf16string::WString;
-/// use byteorder::LE;
+/// use utf16string::Utf16String;
 ///
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// let v = Vec::from(&b"h\x00e\x00l\x00l\x00o\x00"[..]);
-/// let s = WString::from_utf16le(v)?;
+/// let s = Utf16String::from_utf16le(v)?;
 ///
 /// let chars: Vec<char> = s.chars().collect();
 /// assert_eq!(chars, vec!['h', 'e', 'l', 'l', 'o']);
@@ -111,17 +110,16 @@ pub struct Utf16Error {
 /// Converting from valid Unicode is infallible:
 ///
 /// ```
-/// use utf16string::WString;
-/// use byteorder::LittleEndian;
+/// use utf16string::Utf16String;
 ///
-/// let s0: WString<LittleEndian> = WString::from("hello");
+/// let s0 = Utf16String::from("hello");
 /// assert_eq!(s0.len(), 10);
 ///
-/// let s1: WString<LittleEndian> = From::from("hello");
+/// let s1: Utf16String = From::from("hello");
 /// assert_eq!(s0, s1);
 /// ```
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct WString<E: ByteOrder> {
+pub struct Utf16String<E: ByteOrder = NativeEndian> {
     buf: Vec<u8>,
     _endian: PhantomData<E>,
 }
@@ -135,12 +133,12 @@ pub struct WString<E: ByteOrder> {
 ///
 /// ```
 /// # use std::error::Error;
-/// use utf16string::WStr;
+/// use utf16string::Utf16Str;
 /// use byteorder::LittleEndian;
 ///
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// let b = b"h\x00e\x00l\x00l\x00o\x00";
-/// let s: &WStr<LittleEndian> = WStr::from_utf16le(b)?;
+/// let s: &Utf16Str<LittleEndian> = Utf16Str::from_utf16le(b)?;
 ///
 /// let chars: Vec<char> = s.chars().collect();
 /// assert_eq!(chars, vec!['h', 'e', 'l', 'l', 'o']);
@@ -149,10 +147,9 @@ pub struct WString<E: ByteOrder> {
 /// #    Ok(())
 /// # }
 /// ```
-
 #[derive(Debug, Eq, PartialEq, Hash)]
 #[repr(transparent)]
-pub struct WStr<E: ByteOrder> {
+pub struct Utf16Str<E: ByteOrder = NativeEndian> {
     _endian: PhantomData<E>,
     raw: [u8],
 }
@@ -162,7 +159,7 @@ pub struct WStr<E: ByteOrder> {
 /// The slice must contain valid UTF-16, otherwise this may panic or cause undefined
 /// behaviour.
 #[derive(Debug)]
-pub struct WStrChars<'a, E: ByteOrder> {
+pub struct Utf16Chars<'a, E: ByteOrder> {
     chunks: ChunksExact<'a, u8>,
     _endian: PhantomData<E>,
 }
@@ -172,7 +169,7 @@ pub struct WStrChars<'a, E: ByteOrder> {
 /// The slice must contain valid UTF-16, otherwise this may panic or cause undefined
 /// behaviour.
 #[derive(Debug)]
-pub struct WStrCharIndices<'a, E: ByteOrder> {
-    chars: WStrChars<'a, E>,
+pub struct Utf16CharIndices<'a, E: ByteOrder> {
+    chars: Utf16Chars<'a, E>,
     index: usize,
 }

@@ -1,4 +1,4 @@
-//! Implementations for the [`WString`] type.
+//! Implementations for the [`Utf16String`] type.
 //!
 //! The type itself lives in the `lib.rs` file to avoid having to have a public alias, but
 //! implementations live here.
@@ -11,15 +11,15 @@ use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
 use crate::pattern::Utf16Pattern;
 use crate::utilities::{Utf16CharExt, validate_raw_utf16};
-use crate::{Pattern, Utf16Error, WStr, WString};
+use crate::{Pattern, Utf16Error, Utf16Str, Utf16String};
 
-impl WString<LittleEndian> {
-    /// Creates a new [`WString`] from raw bytes in little-endian byte order.
+impl Utf16String<LittleEndian> {
+    /// Creates a new [`Utf16String`] from raw bytes in little-endian byte order.
     pub fn from_utf16le(buf: Vec<u8>) -> Result<Self, Utf16Error> {
         Self::from_utf16(buf)
     }
 
-    /// Converts a vector of bytes to a [`WString`], not checking validity.
+    /// Converts a vector of bytes to a [`Utf16String`], not checking validity.
     ///
     /// # Safety
     ///
@@ -31,13 +31,13 @@ impl WString<LittleEndian> {
     }
 }
 
-impl WString<BigEndian> {
-    /// Creates a new [`WString`] from raw bytes in big-endian byte-order.
+impl Utf16String<BigEndian> {
+    /// Creates a new [`Utf16String`] from raw bytes in big-endian byte-order.
     pub fn from_utf16be(buf: Vec<u8>) -> Result<Self, Utf16Error> {
         Self::from_utf16(buf)
     }
 
-    /// Converts a vector of bytes to a [`WString`], not checking validity.
+    /// Converts a vector of bytes to a [`Utf16String`], not checking validity.
     ///
     /// # Safety
     ///
@@ -49,11 +49,11 @@ impl WString<BigEndian> {
     }
 }
 
-impl<E> WString<E>
+impl<E> Utf16String<E>
 where
     E: ByteOrder,
 {
-    /// Creates a new empty [`WString`].
+    /// Creates a new empty [`Utf16String`].
     #[inline]
     pub fn new() -> Self {
         Self {
@@ -62,7 +62,7 @@ where
         }
     }
 
-    /// Creates a new empty [`WString`] with a capacity.
+    /// Creates a new empty [`Utf16String`] with a capacity.
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
@@ -71,7 +71,7 @@ where
         }
     }
 
-    /// Converts a vector of bytes to a [`WString`].
+    /// Converts a vector of bytes to a [`Utf16String`].
     #[inline]
     pub fn from_utf16(buf: Vec<u8>) -> Result<Self, Utf16Error> {
         validate_raw_utf16::<E>(buf.as_slice())?;
@@ -81,7 +81,7 @@ where
         })
     }
 
-    /// Converts a vector of bytes to a [`WString`], not checking validity.
+    /// Converts a vector of bytes to a [`Utf16String`], not checking validity.
     ///
     /// # Safety
     ///
@@ -101,21 +101,21 @@ where
         self.buf
     }
 
-    /// Returns a `&WStr` slice containing the entire string.
+    /// Returns a `&Utf16Str` slice containing the entire string.
     #[inline]
-    pub fn as_wstr(&self) -> &WStr<E> {
+    pub fn as_utf16_str(&self) -> &Utf16Str<E> {
         self
     }
 
-    /// Returns a `&mut WStr` slice containing the entire string.
+    /// Returns a `&mut Utf16Str` slice containing the entire string.
     #[inline]
-    pub fn as_mut_wstr(&mut self) -> &mut WStr<E> {
+    pub fn as_mut_wstr(&mut self) -> &mut Utf16Str<E> {
         self
     }
 
     /// Appends a string slice onto the end of this string.
     #[inline]
-    pub fn push_wstr(&mut self, string: &WStr<E>) {
+    pub fn push_utf16_str(&mut self, string: &Utf16Str<E>) {
         self.buf.extend_from_slice(string.as_bytes())
     }
 
@@ -147,7 +147,7 @@ where
 
     /// Shortens this string to the specified length.
     ///
-    /// The `new_len` is specified in bytes and not characters, just as [WString::len]
+    /// The `new_len` is specified in bytes and not characters, just as [Utf16String::len]
     /// returns the length in bytes.  If `new_len` is greater than the string's current
     /// length, this has no effect.
     ///
@@ -161,7 +161,7 @@ where
         if new_len < self.len() {
             assert!(
                 self.is_char_boundary(new_len),
-                "new WString length not on char boundary"
+                "new Utf16String length not on char boundary"
             );
             self.buf.truncate(new_len)
         }
@@ -286,7 +286,7 @@ where
     /// Panics if `idx` is larger than the string's length or if it does not lie on a
     /// [`char`] boundary.
     #[inline]
-    pub fn insert_wstr(&mut self, idx: usize, string: &WStr<E>) {
+    pub fn insert_wstr(&mut self, idx: usize, string: &Utf16Str<E>) {
         assert!(self.is_char_boundary(idx));
         unsafe {
             self.insert_bytes(idx, string.as_bytes());
@@ -310,7 +310,7 @@ where
         self.buf.len()
     }
 
-    /// Returns `true` if the string has a [`WString::len`] of zero, `false` otherwise.
+    /// Returns `true` if the string has a [`Utf16String::len`] of zero, `false` otherwise.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
@@ -318,21 +318,21 @@ where
 
     /// Splits the string into two at the given index.
     ///
-    /// Returns a newly allocated [`WString`].  `self` contains bytes `[0..at]` and the
-    /// returned [WString] contains bytes `[at..len]]`.
+    /// Returns a newly allocated [`Utf16String`].  `self` contains bytes `[0..at]` and the
+    /// returned [Utf16String] contains bytes `[at..len]]`.
     ///
     /// # Panics
     ///
     /// Panics if `at` is not on a character boundary or is beyond the end of the string.
     #[inline]
     #[must_use = "use `.truncate()` if you don't need the other half"]
-    pub fn split_off(&mut self, at: usize) -> WString<E> {
+    pub fn split_off(&mut self, at: usize) -> Utf16String<E> {
         assert!(
             self.is_char_boundary(at),
             "split_off not on a char boundary"
         );
         let other = self.buf.split_off(at);
-        unsafe { WString::from_utf16_unchecked(other) }
+        unsafe { Utf16String::from_utf16_unchecked(other) }
     }
 
     /// Truncates this string, removing all contents.
@@ -353,11 +353,11 @@ where
     /// ```rust
     /// # use utf16string::utf16;
     /// let foo = utf16!("I am a utf16 string").to_owned();
-    /// assert_eq!(foo.replace('a', utf16!("bar")).as_wstr(), utf16!("I barm bar utf16 string"));
+    /// assert_eq!(foo.replace('a', utf16!("bar")).as_utf16_str(), utf16!("I barm bar utf16 string"));
     /// ```
     #[must_use = "this returns the replaced string as a new allocation, without modifying the original"]
     #[inline]
-    pub fn replace<P: Pattern<E>>(&self, from: P, to: &WStr<E>) -> Self {
+    pub fn replace<P: Pattern<E>>(&self, from: P, to: &Utf16Str<E>) -> Self {
         // Set result capacity to self.len() when from.len() <= to.len()
         let default_capacity = match from.as_utf16_pattern() {
             Some(Utf16Pattern::StringPattern(s)) if s.len() <= to.len() => self.len(),
@@ -368,17 +368,17 @@ where
         let mut result = Self::with_capacity(default_capacity);
         let mut last_end = 0;
         for (start, part) in self.match_indices(from) {
-            result.push_wstr(unsafe { self.get_unchecked(last_end..start) });
-            result.push_wstr(to);
+            result.push_utf16_str(unsafe { self.get_unchecked(last_end..start) });
+            result.push_utf16_str(to);
             last_end = start + part.len();
         }
 
-        result.push_wstr(unsafe { self.get_unchecked(last_end..self.len()) });
+        result.push_utf16_str(unsafe { self.get_unchecked(last_end..self.len()) });
         result
     }
 }
 
-impl<E> Default for WString<E>
+impl<E> Default for Utf16String<E>
 where
     E: ByteOrder,
 {
@@ -388,28 +388,28 @@ where
     }
 }
 
-impl<E> Deref for WString<E>
+impl<E> Deref for Utf16String<E>
 where
     E: ByteOrder,
 {
-    type Target = WStr<E>;
+    type Target = Utf16Str<E>;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        unsafe { WStr::from_utf16_unchecked(self.buf.as_slice()) }
+        unsafe { Utf16Str::from_utf16_unchecked(self.buf.as_slice()) }
     }
 }
 
-impl<E> DerefMut for WString<E>
+impl<E> DerefMut for Utf16String<E>
 where
     E: ByteOrder,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { WStr::from_utf16_unchecked_mut(self.buf.as_mut_slice()) }
+        unsafe { Utf16Str::from_utf16_unchecked_mut(self.buf.as_mut_slice()) }
     }
 }
 
-impl<E> From<&str> for WString<E>
+impl<E> From<&str> for Utf16String<E>
 where
     E: ByteOrder,
 {
@@ -423,7 +423,7 @@ where
     }
 }
 
-impl<E> From<&mut str> for WString<E>
+impl<E> From<&mut str> for Utf16String<E>
 where
     E: ByteOrder,
 {
@@ -437,7 +437,7 @@ where
     }
 }
 
-impl<E> From<&String> for WString<E>
+impl<E> From<&String> for Utf16String<E>
 where
     E: ByteOrder,
 {
@@ -447,44 +447,44 @@ where
     }
 }
 
-impl<E> From<&WStr<E>> for WString<E>
+impl<E> From<&Utf16Str<E>> for Utf16String<E>
 where
     E: ByteOrder,
 {
-    fn from(value: &WStr<E>) -> Self {
-        // SAFETY: WStr<E> has the same safety invariants as WString<E>
+    fn from(value: &Utf16Str<E>) -> Self {
+        // SAFETY: Utf16Str<E> has the same safety invariants as Utf16String<E>
         unsafe { Self::from_utf16_unchecked(value.as_bytes().to_owned()) }
     }
 }
 
-impl<E> Borrow<WStr<E>> for WString<E>
+impl<E> Borrow<Utf16Str<E>> for Utf16String<E>
 where
     E: ByteOrder,
 {
-    fn borrow(&self) -> &WStr<E> {
-        self.as_wstr()
+    fn borrow(&self) -> &Utf16Str<E> {
+        self.as_utf16_str()
     }
 }
 
-impl<E> ToOwned for WStr<E>
+impl<E> ToOwned for Utf16Str<E>
 where
     E: ByteOrder,
 {
-    type Owned = WString<E>;
+    type Owned = Utf16String<E>;
 
     fn to_owned(&self) -> Self::Owned {
         self.into()
     }
 }
 
-impl<'a, E> FromIterator<&'a WStr<E>> for WString<E>
+impl<'a, E> FromIterator<&'a Utf16Str<E>> for Utf16String<E>
 where
     E: ByteOrder,
 {
-    fn from_iter<T: IntoIterator<Item = &'a WStr<E>>>(iter: T) -> Self {
-        let mut result: WString<E> = Default::default();
+    fn from_iter<T: IntoIterator<Item = &'a Utf16Str<E>>>(iter: T) -> Self {
+        let mut result: Utf16String<E> = Default::default();
         for element in iter {
-            result.push_wstr(element);
+            result.push_utf16_str(element);
         }
         result
     }
@@ -500,7 +500,7 @@ mod tests {
 
     #[test]
     fn test_new() {
-        let s: WString<LE> = WString::new();
+        let s: Utf16String<LE> = Utf16String::new();
         assert_eq!(s.len(), 0);
         assert_eq!(s.capacity(), 0);
         assert_eq!(s.to_utf8(), "");
@@ -508,7 +508,7 @@ mod tests {
 
     #[test]
     fn test_with_capacity() {
-        let s: WString<LE> = WString::with_capacity(5);
+        let s: Utf16String<LE> = Utf16String::with_capacity(5);
         assert_eq!(s.capacity(), 5);
         assert_eq!(s.len(), 0);
         assert_eq!(s.to_utf8(), "");
@@ -517,7 +517,7 @@ mod tests {
     #[test]
     fn test_from_utf16() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s: WString<LE> = WString::from_utf16(b.to_vec()).unwrap();
+        let s: Utf16String<LE> = Utf16String::from_utf16(b.to_vec()).unwrap();
         assert_eq!(s.buf, b);
         assert_eq!(s.to_utf8(), "hello");
     }
@@ -525,41 +525,41 @@ mod tests {
     #[test]
     fn test_from_utf16_le_be() {
         let b_le = b"h\x00e\x00l\x00l\x00o\x00";
-        let s_le = WString::from_utf16le(b_le.to_vec()).unwrap();
+        let s_le = Utf16String::from_utf16le(b_le.to_vec()).unwrap();
         assert_eq!(s_le.to_utf8(), "hello");
 
         let b_be = b"\x00h\x00e\x00l\x00l\x00o";
-        let s_be = WString::from_utf16be(b_be.to_vec()).unwrap();
+        let s_be = Utf16String::from_utf16be(b_be.to_vec()).unwrap();
         assert_eq!(s_be.to_utf8(), "hello");
     }
 
     #[test]
     fn test_from_utf16_unchecked() {
         let b_le = b"h\x00e\x00l\x00l\x00o\x00";
-        let s_le: WString<LE> = unsafe { WString::from_utf16_unchecked(b_le.to_vec()) };
+        let s_le: Utf16String<LE> = unsafe { Utf16String::from_utf16_unchecked(b_le.to_vec()) };
         assert_eq!(s_le.to_utf8(), "hello");
 
-        let s_le = unsafe { WString::from_utf16le_unchecked(b_le.to_vec()) };
+        let s_le = unsafe { Utf16String::from_utf16le_unchecked(b_le.to_vec()) };
         assert_eq!(s_le.to_utf8(), "hello");
 
         let b_be = b"\x00h\x00e\x00l\x00l\x00o";
-        let s_be = unsafe { WString::from_utf16be_unchecked(b_be.to_vec()) };
+        let s_be = unsafe { Utf16String::from_utf16be_unchecked(b_be.to_vec()) };
         assert_eq!(s_be.to_utf8(), "hello");
     }
 
     #[test]
     fn test_from_str() {
-        let s: WString<LE> = WString::from("hello");
+        let s: Utf16String<LE> = Utf16String::from("hello");
         assert_eq!(s.as_bytes(), b"h\x00e\x00l\x00l\x00o\x00");
 
-        let s: WString<BE> = WString::from("hello");
+        let s: Utf16String<BE> = Utf16String::from("hello");
         assert_eq!(s.as_bytes(), b"\x00h\x00e\x00l\x00l\x00o");
 
-        let s: WString<LE> = From::from("hello");
+        let s: Utf16String<LE> = From::from("hello");
         assert_eq!(s.as_bytes(), b"h\x00e\x00l\x00l\x00o\x00");
 
         let mut v = String::from("hello");
-        let s: WString<LE> = From::from(v.as_mut_str());
+        let s: Utf16String<LE> = From::from(v.as_mut_str());
         assert_eq!(s.as_bytes(), b"h\x00e\x00l\x00l\x00o\x00");
     }
 
@@ -567,50 +567,50 @@ mod tests {
     fn test_from_string() {
         let v = String::from("hello");
 
-        let s: WString<LE> = WString::from(&v);
+        let s: Utf16String<LE> = Utf16String::from(&v);
         assert_eq!(s.as_bytes(), b"h\x00e\x00l\x00l\x00o\x00");
 
-        let s: WString<LE> = From::from(&v);
+        let s: Utf16String<LE> = From::from(&v);
         assert_eq!(s.as_bytes(), b"h\x00e\x00l\x00l\x00o\x00");
     }
 
     #[test]
     fn test_into_bytes() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WString::from_utf16le(b.to_vec()).unwrap();
+        let s = Utf16String::from_utf16le(b.to_vec()).unwrap();
         assert_eq!(s.into_bytes(), b);
     }
 
     #[test]
     fn test_as_wstr() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let wstr = WStr::from_utf16le(b).unwrap();
-        let wstring = WString::from_utf16le(b.to_vec()).unwrap();
-        assert_eq!(wstr, wstring.as_wstr());
+        let wstr = Utf16Str::from_utf16le(b).unwrap();
+        let wstring = Utf16String::from_utf16le(b.to_vec()).unwrap();
+        assert_eq!(wstr, wstring.as_utf16_str());
     }
 
     #[test]
     fn test_as_mut_wstr() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let wstr = WStr::from_utf16le(b).unwrap();
-        let mut wstring = WString::from_utf16le(b.to_vec()).unwrap();
-        let m: &mut WStr<_> = wstring.as_mut_wstr();
+        let wstr = Utf16Str::from_utf16le(b).unwrap();
+        let mut wstring = Utf16String::from_utf16le(b.to_vec()).unwrap();
+        let m: &mut Utf16Str<_> = wstring.as_mut_wstr();
         assert_eq!(m, wstr);
     }
 
     #[test]
-    fn test_push_wstr() {
+    fn test_push_utf16_str() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let mut wstring = WString::from_utf16le(b.to_vec()).unwrap();
+        let mut wstring = Utf16String::from_utf16le(b.to_vec()).unwrap();
         let b = b" \x00w\x00o\x00r\x00l\x00d\x00";
-        let wstr = WStr::from_utf16le(b).unwrap();
-        wstring.push_wstr(wstr);
+        let wstr = Utf16Str::from_utf16le(b).unwrap();
+        wstring.push_utf16_str(wstr);
         assert_eq!(wstring.to_utf8(), "hello world");
     }
 
     #[test]
     fn test_reserve() {
-        let mut s: WString<LE> = WString::with_capacity(0);
+        let mut s: Utf16String<LE> = Utf16String::with_capacity(0);
         assert_eq!(s.capacity(), 0);
         s.reserve(42);
         assert!(s.capacity() >= 42);
@@ -618,7 +618,7 @@ mod tests {
 
     #[test]
     fn test_shrink_to_fit() {
-        let mut s: WString<LE> = WString::with_capacity(42);
+        let mut s: Utf16String<LE> = Utf16String::with_capacity(42);
         assert!(s.capacity() >= 42);
         s.shrink_to_fit();
         assert_eq!(s.capacity(), 0);
@@ -626,7 +626,7 @@ mod tests {
 
     #[test]
     fn test_push() {
-        let mut s: WString<LE> = WString::new();
+        let mut s: Utf16String<LE> = Utf16String::new();
         s.push('h');
         s.push('i');
         assert_eq!(s.as_bytes(), b"h\x00i\x00");
@@ -640,7 +640,7 @@ mod tests {
     #[test]
     fn test_truncate() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let mut s = WString::from_utf16le(b.to_vec()).unwrap();
+        let mut s = Utf16String::from_utf16le(b.to_vec()).unwrap();
 
         s.truncate(20);
         assert_eq!(s.to_utf8(), "hello");
@@ -653,7 +653,7 @@ mod tests {
     #[should_panic]
     fn test_truncate_no_char_boundary() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let mut s = WString::from_utf16le(b.to_vec()).unwrap();
+        let mut s = Utf16String::from_utf16le(b.to_vec()).unwrap();
 
         s.truncate(1);
     }
@@ -661,7 +661,7 @@ mod tests {
     #[test]
     fn test_pop() {
         let b = b"a\x00\x00\xd8\x00\xdch\x00i\x00";
-        let mut s = WString::from_utf16le(b.to_vec()).unwrap();
+        let mut s = Utf16String::from_utf16le(b.to_vec()).unwrap();
         assert_eq!(s.to_utf8(), "a\u{10000}hi");
 
         assert_eq!(s.pop(), Some('i'));
@@ -680,7 +680,7 @@ mod tests {
     #[test]
     fn test_remove() {
         let b = b"a\x00\x00\xd8\x00\xdch\x00i\x00";
-        let mut s = WString::from_utf16le(b.to_vec()).unwrap();
+        let mut s = Utf16String::from_utf16le(b.to_vec()).unwrap();
 
         assert_eq!(s.remove(2), '\u{10000}');
         assert_eq!(s.remove(2), 'h');
@@ -689,29 +689,29 @@ mod tests {
 
     #[test]
     fn test_retain() {
-        let mut s: WString<LE> = From::from("h_e__ll_o");
+        let mut s: Utf16String<LE> = From::from("h_e__ll_o");
         s.retain(|c| c != '_');
         assert_eq!(s.to_utf8(), "hello");
     }
 
     #[test]
     fn test_insert() {
-        let mut s: WString<LE> = From::from("hllo");
+        let mut s: Utf16String<LE> = From::from("hllo");
         s.insert(2, 'e');
         assert_eq!(s.to_utf8(), "hello");
     }
 
     #[test]
     fn test_insert_wstr() {
-        let mut s: WString<LE> = From::from("ho");
-        let slice: WString<LE> = From::from("ell");
-        s.insert_wstr(2, slice.as_wstr());
+        let mut s: Utf16String<LE> = From::from("ho");
+        let slice: Utf16String<LE> = From::from("ell");
+        s.insert_wstr(2, slice.as_utf16_str());
         assert_eq!(s.to_string(), "hello");
     }
 
     #[test]
     fn test_as_mut_vec() {
-        let mut s: WString<LE> = From::from("hello");
+        let mut s: Utf16String<LE> = From::from("hello");
         unsafe {
             let v: &mut Vec<u8> = s.as_mut_vec();
             v.extend(b" \x00w\x00o\x00r\x00l\x00d\x00");
@@ -721,7 +721,7 @@ mod tests {
 
     #[test]
     fn test_split_off() {
-        let mut s: WString<LE> = From::from("helloworld");
+        let mut s: Utf16String<LE> = From::from("helloworld");
         let t = s.split_off(10);
         assert_eq!(s.to_string(), "hello");
         assert_eq!(t.to_string(), "world");
@@ -730,13 +730,13 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_split_off_bad_index() {
-        let mut s: WString<LE> = From::from("hi");
+        let mut s: Utf16String<LE> = From::from("hi");
         let _t = s.split_off(1);
     }
 
     #[test]
     fn test_clear() {
-        let mut s: WString<LE> = From::from("hello");
+        let mut s: Utf16String<LE> = From::from("hello");
         assert_eq!(s.to_string(), "hello");
         let cap = s.capacity();
 
@@ -748,8 +748,8 @@ mod tests {
     #[test]
     fn test_deref() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let wstring = WString::from_utf16le(b.to_vec()).unwrap();
-        let wstr = WStr::from_utf16le(b).unwrap();
+        let wstring = Utf16String::from_utf16le(b.to_vec()).unwrap();
+        let wstr = Utf16Str::from_utf16le(b).unwrap();
         assert_eq!(wstring.deref(), wstr);
     }
 
@@ -757,7 +757,7 @@ mod tests {
     fn test_deref_mut() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
         let v = Vec::from(&b[..]);
-        let mut s = WString::from_utf16le(v).unwrap();
+        let mut s = Utf16String::from_utf16le(v).unwrap();
         let wstr = s.deref_mut();
         unsafe {
             let buf = wstr.as_bytes_mut();

@@ -161,7 +161,7 @@ impl Utf16CharExt for char {
 mod tests {
     use super::*;
 
-    use crate::WStr;
+    use crate::Utf16Str;
     use byteorder::LE;
 
     #[test]
@@ -188,39 +188,39 @@ mod tests {
 
         // Lone trailing surrogate in 2nd char
         let b = b"h\x00\x00\xdce\x00l\x00l\x00o\x00";
-        let e = WStr::from_utf16le(b).err().unwrap();
+        let e = Utf16Str::from_utf16le(b).err().unwrap();
         assert_eq!(e.valid_up_to(), 2);
         assert_eq!(e.error_len(), Some(2));
 
-        let head = WStr::from_utf16le(&b[..e.valid_up_to()]).unwrap();
+        let head = Utf16Str::from_utf16le(&b[..e.valid_up_to()]).unwrap();
         assert_eq!(head.to_utf8(), "h");
 
         let start = e.valid_up_to() + e.error_len().unwrap();
-        let tail = WStr::from_utf16le(&b[start..]).unwrap();
+        let tail = Utf16Str::from_utf16le(&b[start..]).unwrap();
         assert_eq!(tail.to_utf8(), "ello");
 
         // Leading surrogate, missing trailing surrogate in 2nd char
         let b = b"h\x00\x00\xd8e\x00l\x00l\x00o\x00";
-        let e = WStr::from_utf16le(b).err().unwrap();
+        let e = Utf16Str::from_utf16le(b).err().unwrap();
         assert_eq!(e.valid_up_to(), 2);
         assert_eq!(e.error_len(), Some(2));
 
-        let head = WStr::from_utf16le(&b[..e.valid_up_to()]).unwrap();
+        let head = Utf16Str::from_utf16le(&b[..e.valid_up_to()]).unwrap();
         assert_eq!(head.to_utf8(), "h");
 
         let start = e.valid_up_to() + e.error_len().unwrap();
-        let tail = WStr::from_utf16le(&b[start..]).unwrap();
+        let tail = Utf16Str::from_utf16le(&b[start..]).unwrap();
         assert_eq!(tail.to_utf8(), "ello");
 
         // End of input
         let b = b"h\x00e\x00l\x00l\x00o\x00\x00\xd8";
-        let e = WStr::from_utf16le(b).err().unwrap();
+        let e = Utf16Str::from_utf16le(b).err().unwrap();
         assert_eq!(e.valid_up_to(), 10);
         assert_eq!(e.error_len(), None);
 
         // End of input, single byte
         let b = b"h\x00e\x00l\x00l\x00o\x00 ";
-        let e = WStr::from_utf16le(b).err().unwrap();
+        let e = Utf16Str::from_utf16le(b).err().unwrap();
         assert_eq!(e.valid_up_to(), 10);
         assert_eq!(e.error_len(), None);
     }

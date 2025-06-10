@@ -8,7 +8,7 @@ use std::ops::{
 
 use byteorder::ByteOrder;
 
-use crate::{WStr, WString};
+use crate::{Utf16Str, Utf16String};
 
 mod private {
     use super::*;
@@ -65,52 +65,52 @@ where
 /// Implments substring slicing with syntax `&self[..]` or `&mut self[..]`.
 ///
 /// Unlike other implementations this can never panic.
-impl<E> SliceIndex<WStr<E>> for RangeFull
+impl<E> SliceIndex<Utf16Str<E>> for RangeFull
 where
     E: ByteOrder,
 {
-    type Output = WStr<E>;
+    type Output = Utf16Str<E>;
 
     #[inline]
-    fn get(self, slice: &WStr<E>) -> Option<&Self::Output> {
+    fn get(self, slice: &Utf16Str<E>) -> Option<&Self::Output> {
         Some(slice)
     }
 
     #[inline]
-    fn get_mut(self, slice: &mut WStr<E>) -> Option<&mut Self::Output> {
+    fn get_mut(self, slice: &mut Utf16Str<E>) -> Option<&mut Self::Output> {
         Some(slice)
     }
 
     #[inline]
-    unsafe fn get_unchecked(self, slice: &WStr<E>) -> &Self::Output {
+    unsafe fn get_unchecked(self, slice: &Utf16Str<E>) -> &Self::Output {
         slice
     }
 
     #[inline]
-    unsafe fn get_unchecked_mut(self, slice: &mut WStr<E>) -> &mut Self::Output {
+    unsafe fn get_unchecked_mut(self, slice: &mut Utf16Str<E>) -> &mut Self::Output {
         slice
     }
 
     #[inline]
-    fn index(self, slice: &WStr<E>) -> &Self::Output {
+    fn index(self, slice: &Utf16Str<E>) -> &Self::Output {
         slice
     }
 
     #[inline]
-    fn index_mut(self, slice: &mut WStr<E>) -> &mut Self::Output {
+    fn index_mut(self, slice: &mut Utf16Str<E>) -> &mut Self::Output {
         slice
     }
 }
 
 /// Implements substring slicing with syntax `&self[begin .. end]` or `&mut self[begin .. end]`.
-impl<E> SliceIndex<WStr<E>> for Range<usize>
+impl<E> SliceIndex<Utf16Str<E>> for Range<usize>
 where
     E: ByteOrder,
 {
-    type Output = WStr<E>;
+    type Output = Utf16Str<E>;
 
     #[inline]
-    fn get(self, slice: &WStr<E>) -> Option<&Self::Output> {
+    fn get(self, slice: &Utf16Str<E>) -> Option<&Self::Output> {
         if self.start <= self.end
             && slice.is_char_boundary(self.start)
             && slice.is_char_boundary(self.end)
@@ -122,7 +122,7 @@ where
     }
 
     #[inline]
-    fn get_mut(self, slice: &mut WStr<E>) -> Option<&mut Self::Output> {
+    fn get_mut(self, slice: &mut Utf16Str<E>) -> Option<&mut Self::Output> {
         if self.start <= self.end
             && slice.is_char_boundary(self.start)
             && slice.is_char_boundary(self.end)
@@ -134,39 +134,39 @@ where
     }
 
     #[inline]
-    unsafe fn get_unchecked(self, slice: &WStr<E>) -> &Self::Output {
+    unsafe fn get_unchecked(self, slice: &Utf16Str<E>) -> &Self::Output {
         let ptr = unsafe { slice.as_ptr().add(self.start) };
         let len = self.end - self.start;
-        unsafe { WStr::from_utf16_unchecked(std::slice::from_raw_parts(ptr, len)) }
+        unsafe { Utf16Str::from_utf16_unchecked(std::slice::from_raw_parts(ptr, len)) }
     }
 
     #[inline]
-    unsafe fn get_unchecked_mut(self, slice: &mut WStr<E>) -> &mut Self::Output {
+    unsafe fn get_unchecked_mut(self, slice: &mut Utf16Str<E>) -> &mut Self::Output {
         let ptr = unsafe { slice.as_mut_ptr().add(self.start) };
         let len = self.end - self.start;
-        unsafe { WStr::from_utf16_unchecked_mut(std::slice::from_raw_parts_mut(ptr, len)) }
+        unsafe { Utf16Str::from_utf16_unchecked_mut(std::slice::from_raw_parts_mut(ptr, len)) }
     }
 
     #[inline]
-    fn index(self, slice: &WStr<E>) -> &Self::Output {
+    fn index(self, slice: &Utf16Str<E>) -> &Self::Output {
         self.get(slice).expect("slice index out of bounds")
     }
 
     #[inline]
-    fn index_mut(self, slice: &mut WStr<E>) -> &mut Self::Output {
+    fn index_mut(self, slice: &mut Utf16Str<E>) -> &mut Self::Output {
         self.get_mut(slice).expect("slice index out of bounds")
     }
 }
 
 /// Implements substring slicing with syntax `&self[.. end]` or `&mut self[.. end]`.
-impl<E> SliceIndex<WStr<E>> for RangeTo<usize>
+impl<E> SliceIndex<Utf16Str<E>> for RangeTo<usize>
 where
     E: ByteOrder,
 {
-    type Output = WStr<E>;
+    type Output = Utf16Str<E>;
 
     #[inline]
-    fn get(self, slice: &WStr<E>) -> Option<&Self::Output> {
+    fn get(self, slice: &Utf16Str<E>) -> Option<&Self::Output> {
         if slice.is_char_boundary(self.end) {
             Some(unsafe { self.get_unchecked(slice) })
         } else {
@@ -175,7 +175,7 @@ where
     }
 
     #[inline]
-    fn get_mut(self, slice: &mut WStr<E>) -> Option<&mut Self::Output> {
+    fn get_mut(self, slice: &mut Utf16Str<E>) -> Option<&mut Self::Output> {
         if slice.is_char_boundary(self.end) {
             Some(unsafe { self.get_unchecked_mut(slice) })
         } else {
@@ -184,37 +184,37 @@ where
     }
 
     #[inline]
-    unsafe fn get_unchecked(self, slice: &WStr<E>) -> &Self::Output {
+    unsafe fn get_unchecked(self, slice: &Utf16Str<E>) -> &Self::Output {
         let ptr = slice.as_ptr();
-        unsafe { WStr::from_utf16_unchecked(std::slice::from_raw_parts(ptr, self.end)) }
+        unsafe { Utf16Str::from_utf16_unchecked(std::slice::from_raw_parts(ptr, self.end)) }
     }
 
     #[inline]
-    unsafe fn get_unchecked_mut(self, slice: &mut WStr<E>) -> &mut Self::Output {
+    unsafe fn get_unchecked_mut(self, slice: &mut Utf16Str<E>) -> &mut Self::Output {
         let ptr = slice.as_mut_ptr();
-        unsafe { WStr::from_utf16_unchecked_mut(std::slice::from_raw_parts_mut(ptr, self.end)) }
+        unsafe { Utf16Str::from_utf16_unchecked_mut(std::slice::from_raw_parts_mut(ptr, self.end)) }
     }
 
     #[inline]
-    fn index(self, slice: &WStr<E>) -> &Self::Output {
+    fn index(self, slice: &Utf16Str<E>) -> &Self::Output {
         self.get(slice).expect("slice index out of bounds")
     }
 
     #[inline]
-    fn index_mut(self, slice: &mut WStr<E>) -> &mut Self::Output {
+    fn index_mut(self, slice: &mut Utf16Str<E>) -> &mut Self::Output {
         self.get_mut(slice).expect("slice index out of bounds")
     }
 }
 
 /// Implements substring slicing with syntax `&self[begin ..]` or `&mut self[begin ..]`.
-impl<E> SliceIndex<WStr<E>> for RangeFrom<usize>
+impl<E> SliceIndex<Utf16Str<E>> for RangeFrom<usize>
 where
     E: ByteOrder,
 {
-    type Output = WStr<E>;
+    type Output = Utf16Str<E>;
 
     #[inline]
-    fn get(self, slice: &WStr<E>) -> Option<&Self::Output> {
+    fn get(self, slice: &Utf16Str<E>) -> Option<&Self::Output> {
         if slice.is_char_boundary(self.start) {
             Some(unsafe { self.get_unchecked(slice) })
         } else {
@@ -223,7 +223,7 @@ where
     }
 
     #[inline]
-    fn get_mut(self, slice: &mut WStr<E>) -> Option<&mut Self::Output> {
+    fn get_mut(self, slice: &mut Utf16Str<E>) -> Option<&mut Self::Output> {
         if slice.is_char_boundary(self.start) {
             Some(unsafe { self.get_unchecked_mut(slice) })
         } else {
@@ -232,39 +232,39 @@ where
     }
 
     #[inline]
-    unsafe fn get_unchecked(self, slice: &WStr<E>) -> &Self::Output {
+    unsafe fn get_unchecked(self, slice: &Utf16Str<E>) -> &Self::Output {
         let ptr = unsafe { slice.as_ptr().add(self.start) };
         let len = slice.len() - self.start;
-        unsafe { WStr::from_utf16_unchecked(std::slice::from_raw_parts(ptr, len)) }
+        unsafe { Utf16Str::from_utf16_unchecked(std::slice::from_raw_parts(ptr, len)) }
     }
 
     #[inline]
-    unsafe fn get_unchecked_mut(self, slice: &mut WStr<E>) -> &mut Self::Output {
+    unsafe fn get_unchecked_mut(self, slice: &mut Utf16Str<E>) -> &mut Self::Output {
         let ptr = unsafe { slice.as_mut_ptr().add(self.start) };
         let len = slice.len() - self.start;
-        unsafe { WStr::from_utf16_unchecked_mut(std::slice::from_raw_parts_mut(ptr, len)) }
+        unsafe { Utf16Str::from_utf16_unchecked_mut(std::slice::from_raw_parts_mut(ptr, len)) }
     }
 
     #[inline]
-    fn index(self, slice: &WStr<E>) -> &Self::Output {
+    fn index(self, slice: &Utf16Str<E>) -> &Self::Output {
         self.get(slice).expect("slice index out of bounds")
     }
 
     #[inline]
-    fn index_mut(self, slice: &mut WStr<E>) -> &mut Self::Output {
+    fn index_mut(self, slice: &mut Utf16Str<E>) -> &mut Self::Output {
         self.get_mut(slice).expect("slice index out of bounds")
     }
 }
 
 /// Implements substring slicing with syntax `&self[begin ..= end]` or `&mut self[begin ..= end]`.
-impl<E> SliceIndex<WStr<E>> for RangeInclusive<usize>
+impl<E> SliceIndex<Utf16Str<E>> for RangeInclusive<usize>
 where
     E: ByteOrder,
 {
-    type Output = WStr<E>;
+    type Output = Utf16Str<E>;
 
     #[inline]
-    fn get(self, slice: &WStr<E>) -> Option<&Self::Output> {
+    fn get(self, slice: &Utf16Str<E>) -> Option<&Self::Output> {
         if *self.end() == usize::MAX {
             None
         } else {
@@ -273,7 +273,7 @@ where
     }
 
     #[inline]
-    fn get_mut(self, slice: &mut WStr<E>) -> Option<&mut Self::Output> {
+    fn get_mut(self, slice: &mut Utf16Str<E>) -> Option<&mut Self::Output> {
         if *self.end() == usize::MAX {
             None
         } else {
@@ -282,17 +282,17 @@ where
     }
 
     #[inline]
-    unsafe fn get_unchecked(self, slice: &WStr<E>) -> &Self::Output {
+    unsafe fn get_unchecked(self, slice: &Utf16Str<E>) -> &Self::Output {
         unsafe { (*self.start()..self.end() + 1).get_unchecked(slice) }
     }
 
     #[inline]
-    unsafe fn get_unchecked_mut(self, slice: &mut WStr<E>) -> &mut Self::Output {
+    unsafe fn get_unchecked_mut(self, slice: &mut Utf16Str<E>) -> &mut Self::Output {
         unsafe { (*self.start()..self.end() + 1).get_unchecked_mut(slice) }
     }
 
     #[inline]
-    fn index(self, slice: &WStr<E>) -> &Self::Output {
+    fn index(self, slice: &Utf16Str<E>) -> &Self::Output {
         if *self.end() == usize::MAX {
             panic!("index overflow");
         }
@@ -300,7 +300,7 @@ where
     }
 
     #[inline]
-    fn index_mut(self, slice: &mut WStr<E>) -> &mut Self::Output {
+    fn index_mut(self, slice: &mut Utf16Str<E>) -> &mut Self::Output {
         if *self.end() == usize::MAX {
             panic!("index overflow");
         }
@@ -309,14 +309,14 @@ where
 }
 
 /// Implements substring slicing with syntax `&self[..= end]` or `&mut self[..= end]`.
-impl<E> SliceIndex<WStr<E>> for RangeToInclusive<usize>
+impl<E> SliceIndex<Utf16Str<E>> for RangeToInclusive<usize>
 where
     E: ByteOrder,
 {
-    type Output = WStr<E>;
+    type Output = Utf16Str<E>;
 
     #[inline]
-    fn get(self, slice: &WStr<E>) -> Option<&Self::Output> {
+    fn get(self, slice: &Utf16Str<E>) -> Option<&Self::Output> {
         if self.end == usize::MAX {
             None
         } else {
@@ -325,7 +325,7 @@ where
     }
 
     #[inline]
-    fn get_mut(self, slice: &mut WStr<E>) -> Option<&mut Self::Output> {
+    fn get_mut(self, slice: &mut Utf16Str<E>) -> Option<&mut Self::Output> {
         if self.end == usize::MAX {
             None
         } else {
@@ -334,17 +334,17 @@ where
     }
 
     #[inline]
-    unsafe fn get_unchecked(self, slice: &WStr<E>) -> &Self::Output {
+    unsafe fn get_unchecked(self, slice: &Utf16Str<E>) -> &Self::Output {
         unsafe { (..self.end + 1).get_unchecked(slice) }
     }
 
     #[inline]
-    unsafe fn get_unchecked_mut(self, slice: &mut WStr<E>) -> &mut Self::Output {
+    unsafe fn get_unchecked_mut(self, slice: &mut Utf16Str<E>) -> &mut Self::Output {
         unsafe { (..self.end + 1).get_unchecked_mut(slice) }
     }
 
     #[inline]
-    fn index(self, slice: &WStr<E>) -> &Self::Output {
+    fn index(self, slice: &Utf16Str<E>) -> &Self::Output {
         if self.end == usize::MAX {
             panic!("index overflow");
         }
@@ -352,7 +352,7 @@ where
     }
 
     #[inline]
-    fn index_mut(self, slice: &mut WStr<E>) -> &mut Self::Output {
+    fn index_mut(self, slice: &mut Utf16Str<E>) -> &mut Self::Output {
         if self.end == usize::MAX {
             panic!("index overflow");
         }
@@ -360,9 +360,9 @@ where
     }
 }
 
-impl<I, E> Index<I> for WStr<E>
+impl<I, E> Index<I> for Utf16Str<E>
 where
-    I: SliceIndex<WStr<E>>,
+    I: SliceIndex<Utf16Str<E>>,
     E: ByteOrder,
 {
     type Output = I::Output;
@@ -373,9 +373,9 @@ where
     }
 }
 
-impl<I, E> IndexMut<I> for WStr<E>
+impl<I, E> IndexMut<I> for Utf16Str<E>
 where
-    I: SliceIndex<WStr<E>>,
+    I: SliceIndex<Utf16Str<E>>,
     E: ByteOrder,
 {
     #[inline]
@@ -384,9 +384,9 @@ where
     }
 }
 
-impl<I, E> Index<I> for WString<E>
+impl<I, E> Index<I> for Utf16String<E>
 where
-    I: SliceIndex<WStr<E>>,
+    I: SliceIndex<Utf16Str<E>>,
     E: ByteOrder,
 {
     type Output = I::Output;
@@ -397,9 +397,9 @@ where
     }
 }
 
-impl<I, E> IndexMut<I> for WString<E>
+impl<I, E> IndexMut<I> for Utf16String<E>
 where
-    I: SliceIndex<WStr<E>>,
+    I: SliceIndex<Utf16Str<E>>,
     E: ByteOrder,
 {
     #[inline]
@@ -415,7 +415,7 @@ mod tests {
     #[test]
     fn test_wstr_range() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let t = &s[2..8];
 
         assert_eq!(t.to_utf8(), "ell");
@@ -424,7 +424,7 @@ mod tests {
     #[test]
     fn test_wstr_range_to() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let t = &s[..8];
 
         assert_eq!(t.to_utf8(), "hell");
@@ -433,7 +433,7 @@ mod tests {
     #[test]
     fn test_wstr_range_from() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let t = &s[2..];
 
         assert_eq!(t.to_utf8(), "ello");
@@ -442,7 +442,7 @@ mod tests {
     #[test]
     fn test_wstr_range_full() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let t = &s[..];
 
         assert_eq!(t.to_utf8(), "hello");
@@ -451,7 +451,7 @@ mod tests {
     #[test]
     fn test_wstr_range_inclusive() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let t = &s[2..=7];
 
         assert_eq!(t.to_utf8(), "ell");
@@ -460,7 +460,7 @@ mod tests {
     #[test]
     fn test_wstr_range_to_inclusive() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let t = &s[..=7];
 
         assert_eq!(t.to_utf8(), "hell");
@@ -469,7 +469,7 @@ mod tests {
     #[test]
     fn test_wstring_range() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WString::from_utf16le(b.to_vec()).unwrap();
+        let s = Utf16String::from_utf16le(b.to_vec()).unwrap();
         let t = &s[2..8];
 
         assert_eq!(t.to_utf8(), "ell");
@@ -478,7 +478,7 @@ mod tests {
     #[test]
     fn test_wstring_range_to() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WString::from_utf16le(b.to_vec()).unwrap();
+        let s = Utf16String::from_utf16le(b.to_vec()).unwrap();
         let t = &s[..8];
 
         assert_eq!(t.to_utf8(), "hell");
@@ -487,7 +487,7 @@ mod tests {
     #[test]
     fn test_wstring_range_from() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WString::from_utf16le(b.to_vec()).unwrap();
+        let s = Utf16String::from_utf16le(b.to_vec()).unwrap();
         let t = &s[2..];
 
         assert_eq!(t.to_utf8(), "ello");
@@ -496,7 +496,7 @@ mod tests {
     #[test]
     fn test_wstring_range_full() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WString::from_utf16le(b.to_vec()).unwrap();
+        let s = Utf16String::from_utf16le(b.to_vec()).unwrap();
         let t = &s[..];
 
         assert_eq!(t.to_utf8(), "hello");
@@ -505,7 +505,7 @@ mod tests {
     #[test]
     fn test_wstring_range_inclusive() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WString::from_utf16le(b.to_vec()).unwrap();
+        let s = Utf16String::from_utf16le(b.to_vec()).unwrap();
         let t = &s[2..=7];
 
         assert_eq!(t.to_utf8(), "ell");
@@ -514,7 +514,7 @@ mod tests {
     #[test]
     fn test_wstring_range_to_inclusive() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WString::from_utf16le(b.to_vec()).unwrap();
+        let s = Utf16String::from_utf16le(b.to_vec()).unwrap();
         let t = &s[..=7];
 
         assert_eq!(t.to_utf8(), "hell");

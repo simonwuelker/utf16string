@@ -127,7 +127,7 @@ macro_rules! utf16 {
             ::std::slice::from_raw_parts(UTF16_BUFFER.0.as_ptr() as *const u8, NUM_BYTES)
         };
 
-        unsafe { $crate::WStr::<byteorder::NativeEndian>::from_utf16_unchecked(OUT) }
+        unsafe { $crate::Utf16Str::<byteorder::NativeEndian>::from_utf16_unchecked(OUT) }
     }};
 }
 
@@ -135,14 +135,14 @@ macro_rules! utf16 {
 mod tests {
     use byteorder::NativeEndian;
 
-    use crate::WStr;
+    use crate::Utf16Str;
 
     use super::*;
 
     #[test]
     fn encode_utf16_works() {
         const TEXT: &str = "Hello \0ä日本 語🚀🦀";
-        const RESULT: &WStr<NativeEndian> = utf16!(TEXT);
+        const RESULT: &Utf16Str<NativeEndian> = utf16!(TEXT);
 
         assert_eq!(RESULT.to_utf8(), TEXT);
     }

@@ -1,6 +1,6 @@
 // This module is largely adapted from https://github.com/rust-lang/rust/blob/8a407a82848bbc926de1cbbbbcb381e1a96f5968/library/core/src/str/pattern.rs
 
-use crate::WStr;
+use crate::Utf16Str;
 use byteorder::ByteOrder;
 
 pub enum Utf16Pattern<'a, E>
@@ -8,7 +8,7 @@ where
     E: ByteOrder,
 {
     CharPattern(char),
-    StringPattern(&'a WStr<E>),
+    StringPattern(&'a Utf16Str<E>),
 }
 
 pub trait Pattern<E>: Sized
@@ -21,23 +21,23 @@ where
 
     /// Constructs the associated searcher from
     /// `self` and the `haystack` to search in.
-    fn into_searcher(self, haystack: &WStr<E>) -> Self::Searcher<'_>;
+    fn into_searcher(self, haystack: &Utf16Str<E>) -> Self::Searcher<'_>;
 
     /// Checks whether the pattern matches anywhere in the haystack
     #[inline]
-    fn is_contained_in(self, haystack: &WStr<E>) -> bool {
+    fn is_contained_in(self, haystack: &Utf16Str<E>) -> bool {
         self.into_searcher(haystack).next_match().is_some()
     }
 
     /// Checks whether the pattern matches at the front of the haystack
     #[inline]
-    fn is_prefix_of(self, haystack: &WStr<E>) -> bool {
+    fn is_prefix_of(self, haystack: &Utf16Str<E>) -> bool {
         matches!(self.into_searcher(haystack).next(), SearchStep::Match(0, _))
     }
 
     /// Checks whether the pattern matches at the back of the haystack
     #[inline]
-    fn is_suffix_of<'a>(self, haystack: &'a WStr<E>) -> bool
+    fn is_suffix_of<'a>(self, haystack: &'a Utf16Str<E>) -> bool
     where
         Self::Searcher<'a>: ReverseSearcher<'a, E>,
     {
@@ -46,7 +46,7 @@ where
 
     /// Removes the pattern from the front of haystack, if it matches.
     #[inline]
-    fn strip_prefix_of(self, haystack: &WStr<E>) -> Option<&WStr<E>> {
+    fn strip_prefix_of(self, haystack: &Utf16Str<E>) -> Option<&Utf16Str<E>> {
         if let SearchStep::Match(start, len) = self.into_searcher(haystack).next() {
             debug_assert_eq!(
                 start, 0,
@@ -62,7 +62,7 @@ where
 
     /// Removes the pattern from the back of haystack, if it matches.
     #[inline]
-    fn strip_suffix_of<'a>(self, haystack: &'a WStr<E>) -> Option<&'a WStr<E>>
+    fn strip_suffix_of<'a>(self, haystack: &'a Utf16Str<E>) -> Option<&'a Utf16Str<E>>
     where
         Self::Searcher<'a>: ReverseSearcher<'a, E>,
     {
@@ -91,7 +91,7 @@ where
     /// Getter for the underlying string to be searched in
     ///
     /// Will always return the same [`&WStr`][WStr].
-    fn haystack(&self) -> &'a WStr<E>;
+    fn haystack(&self) -> &'a Utf16Str<E>;
 
     /// Performs the next search step starting from the front.
     ///
@@ -235,7 +235,7 @@ where
         E: 'a;
 
     #[inline]
-    fn into_searcher<'a>(self, haystack: &'a WStr<E>) -> Self::Searcher<'a> {
+    fn into_searcher<'a>(self, haystack: &'a Utf16Str<E>) -> Self::Searcher<'a> {
         let mut utf16_encoded = [0; 2];
         let mut utf16_bytes = [0; 4];
         let utf16_size = (self.encode_utf16(&mut utf16_encoded).len() * 2)
@@ -266,7 +266,7 @@ pub struct CharSearcher<'a, E>
 where
     E: 'a + ByteOrder,
 {
-    haystack: &'a WStr<E>,
+    haystack: &'a Utf16Str<E>,
     /// `finger` is the current byte index of the forward search.
     /// Imagine that it exists before the byte at its index, i.e.
     /// `haystack[finger]` is the first byte of the slice we must inspect during
@@ -300,7 +300,7 @@ where
     E: ByteOrder,
 {
     #[inline]
-    fn haystack(&self) -> &'a WStr<E> {
+    fn haystack(&self) -> &'a Utf16Str<E> {
         self.haystack
     }
 

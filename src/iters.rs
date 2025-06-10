@@ -11,10 +11,10 @@ use std::iter::FusedIterator;
 use crate::utilities::{
     Utf16CharExt, decode_surrogates, is_leading_surrogate, is_trailing_surrogate,
 };
-use crate::{Pattern, ReverseSearcher, Searcher, WStr};
-use crate::{WStrCharIndices, WStrChars};
+use crate::{Pattern, ReverseSearcher, Searcher, Utf16Str};
+use crate::{Utf16CharIndices, Utf16Chars};
 
-impl<'a, E> Iterator for WStrChars<'a, E>
+impl<'a, E> Iterator for Utf16Chars<'a, E>
 where
     E: ByteOrder,
 {
@@ -54,9 +54,9 @@ where
     }
 }
 
-impl<'a, E> FusedIterator for WStrChars<'a, E> where E: ByteOrder {}
+impl<'a, E> FusedIterator for Utf16Chars<'a, E> where E: ByteOrder {}
 
-impl<'a, E> DoubleEndedIterator for WStrChars<'a, E>
+impl<'a, E> DoubleEndedIterator for Utf16Chars<'a, E>
 where
     E: ByteOrder,
 {
@@ -81,7 +81,7 @@ where
     }
 }
 
-impl<'a, E> Iterator for WStrCharIndices<'a, E>
+impl<'a, E> Iterator for Utf16CharIndices<'a, E>
 where
     E: ByteOrder,
 {
@@ -107,7 +107,7 @@ where
     }
 }
 
-impl<'a, E> DoubleEndedIterator for WStrCharIndices<'a, E>
+impl<'a, E> DoubleEndedIterator for Utf16CharIndices<'a, E>
 where
     E: ByteOrder,
 {
@@ -119,7 +119,7 @@ where
     }
 }
 
-impl<'a, E> FusedIterator for WStrCharIndices<'a, E> where E: ByteOrder {}
+impl<'a, E> FusedIterator for Utf16CharIndices<'a, E> where E: ByteOrder {}
 
 pub struct Split<'a, E, P>
 where
@@ -154,7 +154,7 @@ where
     E: 'a + ByteOrder,
     P: Pattern<E>,
 {
-    type Item = &'a WStr<E>;
+    type Item = &'a Utf16Str<E>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.finished {
@@ -217,7 +217,7 @@ where
     P: Pattern<E>,
 {
     #[inline]
-    fn get_end(&mut self) -> Option<&'a WStr<E>> {
+    fn get_end(&mut self) -> Option<&'a Utf16Str<E>> {
         if !self.finished {
             self.finished = true;
 
@@ -231,7 +231,7 @@ where
     }
 
     #[inline]
-    pub fn next_inclusive(&mut self) -> Option<&'a WStr<E>> {
+    pub fn next_inclusive(&mut self) -> Option<&'a Utf16Str<E>> {
         if self.finished {
             return None;
         }
@@ -248,7 +248,7 @@ where
     }
 
     #[inline]
-    pub fn next_back_inclusive(&mut self) -> Option<&'a WStr<E>>
+    pub fn next_back_inclusive(&mut self) -> Option<&'a Utf16Str<E>>
     where
         P::Searcher<'a>: ReverseSearcher<'a, E>,
     {
@@ -283,7 +283,7 @@ where
     }
 
     #[inline]
-    pub fn remainder(&self) -> Option<&'a WStr<E>> {
+    pub fn remainder(&self) -> Option<&'a Utf16Str<E>> {
         // `Self::get_end` doesn't change `self.start`
         if self.finished {
             return None;
@@ -295,23 +295,23 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::WStr;
+    use crate::Utf16Str;
 
     #[test]
     fn test_wstr_chars() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let chars: Vec<char> = s.chars().collect();
         assert_eq!(chars, vec!['h', 'e', 'l', 'l', 'o']);
 
         let b = b"\x00\xd8\x00\xdcx\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let chars: Vec<char> = s.chars().collect();
         assert_eq!(chars, vec!['\u{10000}', 'x']);
 
         // Regression: this leading surrogate used to be badly detected.
         let b = b"\x41\xf8A\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let chars: Vec<char> = s.chars().collect();
         assert_eq!(chars, vec!['\u{f841}', 'A']);
     }
@@ -319,12 +319,12 @@ mod tests {
     #[test]
     fn test_wstr_chars_reverse() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let chars: Vec<char> = s.chars().rev().collect();
         assert_eq!(chars, vec!['o', 'l', 'l', 'e', 'h']);
 
         let b = b"\x00\xd8\x00\xdcx\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let chars: Vec<char> = s.chars().rev().collect();
         assert_eq!(chars, vec!['x', '\u{10000}']);
     }
@@ -332,12 +332,12 @@ mod tests {
     #[test]
     fn test_wstr_chars_last() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let c = s.chars().last().unwrap();
         assert_eq!(c, 'o');
 
         let b = b"\x00\xd8\x00\xdcx\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let c = s.chars().last().unwrap();
         assert_eq!(c, 'x');
     }
@@ -345,12 +345,12 @@ mod tests {
     #[test]
     fn test_wstr_chars_count() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let n = s.chars().count();
         assert_eq!(n, 5);
 
         let b = b"\x00\xd8\x00\xdcx\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let n = s.chars().count();
         assert_eq!(n, 2);
     }
@@ -358,7 +358,7 @@ mod tests {
     #[test]
     fn test_wstr_char_indices() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let chars: Vec<(usize, char)> = s.char_indices().collect();
         assert_eq!(
             chars,
@@ -366,7 +366,7 @@ mod tests {
         );
 
         let b = b"\x00\xd8\x00\xdcx\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let chars: Vec<(usize, char)> = s.char_indices().collect();
         assert_eq!(chars, vec![(0, '\u{10000}'), (4, 'x')]);
     }
@@ -374,7 +374,7 @@ mod tests {
     #[test]
     fn test_wstr_char_indices_reverse() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let chars: Vec<(usize, char)> = s.char_indices().rev().collect();
         assert_eq!(
             chars,
@@ -382,7 +382,7 @@ mod tests {
         );
 
         let b = b"\x00\xd8\x00\xdcx\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let chars: Vec<(usize, char)> = s.char_indices().rev().collect();
         assert_eq!(chars, vec![(4, 'x'), (0, '\u{10000}')]);
     }
@@ -390,12 +390,12 @@ mod tests {
     #[test]
     fn test_wstr_char_indices_last() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let c = s.char_indices().last().unwrap();
         assert_eq!(c, (8, 'o'));
 
         let b = b"\x00\xd8\x00\xdcx\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let c = s.char_indices().last().unwrap();
         assert_eq!(c, (4, 'x'));
     }
@@ -403,12 +403,12 @@ mod tests {
     #[test]
     fn test_wstr_char_indices_count() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let n = s.char_indices().count();
         assert_eq!(n, 5);
 
         let b = b"\x00\xd8\x00\xdcx\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let n = s.char_indices().count();
         assert_eq!(n, 2);
     }

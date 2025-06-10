@@ -1,4 +1,4 @@
-//! Implementations for the [`WStr`] type.
+//! Implementations for the [`Utf16Str`] type.
 //!
 //! The type itself lives in the `lib.rs` file to avoid having to have a public alias, but
 //! implementations live here.
@@ -11,33 +11,35 @@ use byteorder::{BigEndian, ByteOrder, LittleEndian};
 use crate::iters::Split;
 use crate::slicing::SliceIndex;
 use crate::utilities::{is_trailing_surrogate, validate_raw_utf16};
-use crate::{Pattern, ReverseSearcher, Searcher, Utf16Error, WStr, WStrCharIndices, WStrChars};
+use crate::{
+    Pattern, ReverseSearcher, Searcher, Utf16CharIndices, Utf16Chars, Utf16Error, Utf16Str,
+};
 
-impl WStr<LittleEndian> {
-    /// Creates a new `&WStr<LE>`.
+impl Utf16Str<LittleEndian> {
+    /// Creates a new `&Utf16Str<LE>`.
     pub fn from_utf16le(raw: &[u8]) -> Result<&Self, Utf16Error> {
         Self::from_utf16(raw)
     }
 
-    /// Creates a new `&mut WStr<LE>`.
+    /// Creates a new `&mut Utf16Str<LE>`.
     pub fn from_utf16le_mut(raw: &mut [u8]) -> Result<&mut Self, Utf16Error> {
         Self::from_utf16_mut(raw)
     }
 
-    /// Creates a new [WStr] with little-endian byte-ordering.
+    /// Creates a new [Utf16Str] with little-endian byte-ordering.
     ///
-    /// This is a shortcut to easily create `WStr<LE>` without having to specify the type
+    /// This is a shortcut to easily create `Utf16Str<LE>` without having to specify the type
     /// explicitly.
     ///
     /// # Example
     ///
     /// ```
-    /// use utf16string::WStr;
+    /// use utf16string::Utf16Str;
     /// use byteorder::LittleEndian;
     ///
     /// let b = b"h\x00i\x00";
-    /// let s: &WStr<LittleEndian> = unsafe { WStr::from_utf16_unchecked(b) };
-    /// let t = unsafe { WStr::from_utf16le_unchecked(b) };
+    /// let s: &Utf16Str<LittleEndian> = unsafe { Utf16Str::from_utf16_unchecked(b) };
+    /// let t = unsafe { Utf16Str::from_utf16le_unchecked(b) };
     /// assert_eq!(s, t);
     /// ```
     ///
@@ -49,7 +51,7 @@ impl WStr<LittleEndian> {
         unsafe { Self::from_utf16_unchecked(raw) }
     }
 
-    /// Creates a new `&mut WStr<LE>`.
+    /// Creates a new `&mut Utf16Str<LE>`.
     ///
     /// # Safety
     ///
@@ -60,31 +62,31 @@ impl WStr<LittleEndian> {
     }
 }
 
-impl WStr<BigEndian> {
-    /// Creates a new `&WStr<BE>`.
+impl Utf16Str<BigEndian> {
+    /// Creates a new `&Utf16Str<BE>`.
     pub fn from_utf16be(raw: &[u8]) -> Result<&Self, Utf16Error> {
         Self::from_utf16(raw)
     }
 
-    /// Creates a new `&mut WStr<BE>`.
+    /// Creates a new `&mut Utf16Str<BE>`.
     pub fn from_utf16be_mut(raw: &mut [u8]) -> Result<&mut Self, Utf16Error> {
         Self::from_utf16_mut(raw)
     }
 
-    /// Creates a new `&WStr<BE>` from an existing byte-slice with big-endian byte-ordering.
+    /// Creates a new `&Utf16Str<BE>` from an existing byte-slice with big-endian byte-ordering.
     ///
-    /// This is a shortcut to easily create `WStr<BE>` without having to specify the type
+    /// This is a shortcut to easily create `Utf16Str<BE>` without having to specify the type
     /// explicitly.
     ///
     /// # Example
     ///
     /// ```
-    /// use utf16string::WStr;
+    /// use utf16string::Utf16Str;
     /// use byteorder::BE;
     ///
     /// let b = b"h\x00i\x00";
-    /// let s: &WStr<BE> = unsafe { WStr::from_utf16_unchecked(b) };
-    /// let t = unsafe { WStr::from_utf16be_unchecked(b) };
+    /// let s: &Utf16Str<BE> = unsafe { Utf16Str::from_utf16_unchecked(b) };
+    /// let t = unsafe { Utf16Str::from_utf16be_unchecked(b) };
     /// assert_eq!(s, t);
     /// ```
     ///
@@ -96,7 +98,7 @@ impl WStr<BigEndian> {
         unsafe { Self::from_utf16_unchecked(raw) }
     }
 
-    /// Creates a new `&mut WStr<BE>`.
+    /// Creates a new `&mut Utf16Str<BE>`.
     ///
     /// # Safety
     ///
@@ -107,11 +109,11 @@ impl WStr<BigEndian> {
     }
 }
 
-impl<E> WStr<E>
+impl<E> Utf16Str<E>
 where
     E: ByteOrder,
 {
-    /// Creates a new `&WStr<E>` from an existing UTF-16 byte-slice.
+    /// Creates a new `&Utf16Str<E>` from an existing UTF-16 byte-slice.
     ///
     /// If the byte-slice is not valid [`Utf16Error`] is returned.
     pub fn from_utf16(raw: &[u8]) -> Result<&Self, Utf16Error> {
@@ -119,7 +121,7 @@ where
         Ok(unsafe { Self::from_utf16_unchecked(raw) })
     }
 
-    /// Creates a new `&mut WStr<E>` from an existing UTF-16 byte-slice.
+    /// Creates a new `&mut Utf16Str<E>` from an existing UTF-16 byte-slice.
     ///
     /// If the byte-slice is not valid [`Utf16Error`] is returned.
     pub fn from_utf16_mut(raw: &mut [u8]) -> Result<&mut Self, Utf16Error> {
@@ -127,7 +129,7 @@ where
         Ok(unsafe { Self::from_utf16_unchecked_mut(raw) })
     }
 
-    /// Creates a new `&WStr<E>` from an existing UTF-16 byte-slice.
+    /// Creates a new `&Utf16Str<E>` from an existing UTF-16 byte-slice.
     ///
     /// # Safety
     ///
@@ -137,7 +139,7 @@ where
         unsafe { &*(raw as *const [u8] as *const Self) }
     }
 
-    /// Like [`WStr::from_utf16_unchecked`] but return a mutable reference.
+    /// Like [`Utf16Str::from_utf16_unchecked`] but return a mutable reference.
     ///
     /// # Safety
     ///
@@ -153,7 +155,7 @@ where
         self.raw.len()
     }
 
-    /// Returns `true` if the [WStr::len] is zero.
+    /// Returns `true` if the [Utf16Str::len] is zero.
     #[inline]
     pub const fn is_empty(&self) -> bool {
         self.len() == 0
@@ -210,9 +212,9 @@ where
     /// the subslice is not on character boundaries or otherwise invalid this will return
     /// [`None`].
     #[inline]
-    pub fn get<I>(&self, index: I) -> Option<&<I as SliceIndex<WStr<E>>>::Output>
+    pub fn get<I>(&self, index: I) -> Option<&<I as SliceIndex<Utf16Str<E>>>::Output>
     where
-        I: SliceIndex<WStr<E>>,
+        I: SliceIndex<Utf16Str<E>>,
     {
         index.get(self)
     }
@@ -223,9 +225,9 @@ where
     /// the subslice is not on character boundaries or otherwise invalid this will return
     /// [`None`].
     #[inline]
-    pub fn get_mut<I>(&mut self, index: I) -> Option<&mut <I as SliceIndex<WStr<E>>>::Output>
+    pub fn get_mut<I>(&mut self, index: I) -> Option<&mut <I as SliceIndex<Utf16Str<E>>>::Output>
     where
-        I: SliceIndex<WStr<E>>,
+        I: SliceIndex<Utf16Str<E>>,
     {
         index.get_mut(self)
     }
@@ -234,12 +236,12 @@ where
     ///
     /// # Safety
     ///
-    /// Like [`WStr::get`] but this results in undefined behaviour if the sublice is not on
+    /// Like [`Utf16Str::get`] but this results in undefined behaviour if the sublice is not on
     /// character boundaries or otherwise invalid.
     #[inline]
-    pub unsafe fn get_unchecked<I>(&self, index: I) -> &<I as SliceIndex<WStr<E>>>::Output
+    pub unsafe fn get_unchecked<I>(&self, index: I) -> &<I as SliceIndex<Utf16Str<E>>>::Output
     where
-        I: SliceIndex<WStr<E>>,
+        I: SliceIndex<Utf16Str<E>>,
     {
         unsafe { index.get_unchecked(self) }
     }
@@ -248,23 +250,23 @@ where
     ///
     /// # Safety
     ///
-    /// Lice [`WStr::get_mut`] but this results in undefined behaviour if the subslice is
+    /// Lice [`Utf16Str::get_mut`] but this results in undefined behaviour if the subslice is
     /// not on character boundaries or otherwise invalid.
     #[inline]
     pub unsafe fn get_unchecked_mut<I>(
         &mut self,
         index: I,
-    ) -> &mut <I as SliceIndex<WStr<E>>>::Output
+    ) -> &mut <I as SliceIndex<Utf16Str<E>>>::Output
     where
-        I: SliceIndex<WStr<E>>,
+        I: SliceIndex<Utf16Str<E>>,
     {
         unsafe { index.get_unchecked_mut(self) }
     }
 
     /// Returns an iterator of the [`char`]s of a string slice.
     #[inline]
-    pub fn chars(&self) -> WStrChars<E> {
-        WStrChars {
+    pub fn chars(&self) -> Utf16Chars<E> {
+        Utf16Chars {
             chunks: self.raw.chunks_exact(2),
             _endian: self._endian,
         }
@@ -272,14 +274,14 @@ where
 
     /// Returns and iterator over the [`char`]s of a string slice and their positions.
     #[inline]
-    pub fn char_indices(&self) -> WStrCharIndices<E> {
-        WStrCharIndices {
+    pub fn char_indices(&self) -> Utf16CharIndices<E> {
+        Utf16CharIndices {
             chars: self.chars(),
             index: 0,
         }
     }
 
-    /// Returns this [`WStr`] as a new owned [`String`].
+    /// Returns this [`Utf16Str`] as a new owned [`String`].
     pub fn to_utf8(&self) -> String {
         self.chars().collect()
     }
@@ -313,7 +315,7 @@ where
     }
 }
 
-impl<E> AsRef<[u8]> for WStr<E>
+impl<E> AsRef<[u8]> for Utf16Str<E>
 where
     E: ByteOrder,
 {
@@ -323,7 +325,7 @@ where
     }
 }
 
-impl<E> fmt::Display for WStr<E>
+impl<E> fmt::Display for Utf16Str<E>
 where
     E: ByteOrder,
 {
@@ -339,7 +341,7 @@ where
     E: 'a + ByteOrder,
     P: Pattern<E>,
 {
-    type Item = (usize, &'a WStr<E>);
+    type Item = (usize, &'a Utf16Str<E>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0
@@ -385,55 +387,55 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_wstr_from_utf16le() {
+    fn test_utf16str_from_utf16le() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         assert_eq!(s.to_utf8(), "hello");
 
         // Odd number of bytes
         let b = b"h\x00e\x00l\x00l\x00o";
-        let s = WStr::from_utf16le(b);
+        let s = Utf16Str::from_utf16le(b);
         assert!(s.is_err());
 
         // Lone leading surrogate
         let b = b"\x00\xd8x\x00";
-        let s = WStr::from_utf16le(b);
+        let s = Utf16Str::from_utf16le(b);
         assert!(s.is_err());
 
         // Lone trailing surrogate
         let b = b"\x00\xdcx\x00";
-        let s = WStr::from_utf16le(b);
+        let s = Utf16Str::from_utf16le(b);
         assert!(s.is_err());
     }
 
     #[test]
-    fn test_wstr_from_utf16le_unchecked() {
+    fn test_utf16str_from_utf16le_unchecked() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = unsafe { WStr::from_utf16le_unchecked(b) };
+        let s = unsafe { Utf16Str::from_utf16le_unchecked(b) };
         assert_eq!(s.to_utf8(), "hello");
     }
 
     #[test]
-    fn test_wstr_len() {
+    fn test_utf16str_len() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         assert_eq!(s.len(), b.len());
     }
 
     #[test]
-    fn test_wstr_is_empty() {
+    fn test_utf16str_is_empty() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         assert!(!s.is_empty());
 
-        let s = WStr::from_utf16le(b"").unwrap();
+        let s = Utf16Str::from_utf16le(b"").unwrap();
         assert!(s.is_empty());
     }
 
     #[test]
-    fn test_wstr_is_char_boundary() {
+    fn test_utf16str_is_char_boundary() {
         let b = b"\x00\xd8\x00\xdcx\x00"; // "\u{10000}\u{78}"
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         assert!(s.is_char_boundary(0));
         assert!(!s.is_char_boundary(1));
         assert!(!s.is_char_boundary(2));
@@ -445,16 +447,16 @@ mod tests {
     }
 
     #[test]
-    fn test_wstr_as_bytes() {
+    fn test_utf16str_as_bytes() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         assert_eq!(s.as_bytes(), b);
     }
 
     #[test]
-    fn test_wstr_as_bytes_mut() {
+    fn test_utf16str_as_bytes_mut() {
         let mut b = Vec::from(&b"h\x00e\x00l\x00l\x00o\x00"[..]);
-        let s = WStr::from_utf16le_mut(b.as_mut_slice()).unwrap();
+        let s = Utf16Str::from_utf16le_mut(b.as_mut_slice()).unwrap();
         let world = b"w\x00o\x00r\x00l\x00d\x00";
         unsafe {
             let buf = s.as_bytes_mut();
@@ -464,12 +466,12 @@ mod tests {
     }
 
     #[test]
-    fn test_wstr_get() {
+    fn test_utf16str_get() {
         // This is implemented with get_unchecked() so this is also already tested.
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
 
-        let t = s.get(0..8).expect("expected Some(&WStr)");
+        let t = s.get(0..8).expect("expected Some(&Utf16Str)");
         assert_eq!(t.as_bytes(), b"h\x00e\x00l\x00l\x00");
 
         let t = s.get(1..8);
@@ -477,10 +479,10 @@ mod tests {
     }
 
     #[test]
-    fn test_wstr_get_mut() {
+    fn test_utf16str_get_mut() {
         // This is implemented with get_unchecked_mut() so this is also already tested.
         let mut b = Vec::from(&b"h\x00e\x00l\x00l\x00o\x00"[..]);
-        let s = WStr::from_utf16le_mut(b.as_mut_slice()).unwrap();
+        let s = Utf16Str::from_utf16le_mut(b.as_mut_slice()).unwrap();
 
         let t = s.get_mut(0..2).expect("expected Some(&mut Wstr)");
         unsafe {
@@ -492,44 +494,44 @@ mod tests {
     }
 
     #[test]
-    fn test_wstr_slice() {
+    fn test_utf16str_slice() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let sub = &s[2..8];
         assert_eq!(sub.as_bytes(), b"e\x00l\x00l\x00");
     }
 
     #[test]
     #[should_panic]
-    fn test_wstr_bad_index() {
+    fn test_utf16str_bad_index() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let _r = &s[2..7];
     }
 
     #[test]
-    fn test_wstr_to_utf8() {
+    fn test_utf16str_to_utf8() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let out: String = s.to_utf8();
         assert_eq!(out, "hello");
     }
 
     #[test]
-    fn test_wstr_is_ascii() {
+    fn test_utf16str_is_ascii() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         assert!(s.is_ascii());
 
         let b = b"\x00\xd8\x00\xdcx\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         assert!(!s.is_ascii());
     }
 
     #[test]
-    fn test_wstr_as_ref() {
+    fn test_utf16str_as_ref() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         let r: &[u8] = s.as_ref();
         assert_eq!(r, b);
     }
@@ -537,7 +539,7 @@ mod tests {
     #[test]
     fn test_display() {
         let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = WStr::from_utf16le(b).unwrap();
+        let s = Utf16Str::from_utf16le(b).unwrap();
         assert_eq!(format!("{}", s), "hello");
     }
 }
