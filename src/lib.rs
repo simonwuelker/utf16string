@@ -66,19 +66,19 @@
 //! ```
 
 #![warn(
-    missing_docs,
-    missing_debug_implementations,
     missing_copy_implementations,
     unused_extern_crates,
     unused_qualifications,
     clippy::all
 )]
 
+use byteorder::ByteOrder;
 use std::marker::PhantomData;
 use std::slice::ChunksExact;
 
 mod error;
 mod iters;
+mod pattern;
 mod slicing;
 mod utilities;
 mod wstr;
@@ -88,8 +88,8 @@ mod macros;
 
 #[doc(inline)]
 pub use crate::slicing::SliceIndex;
-
 pub use macros::CodePointIterator;
+pub use pattern::{Pattern, Searcher};
 
 /// Error for invalid UTF-16 encoded bytes.
 #[derive(Debug, Copy, Clone)]
