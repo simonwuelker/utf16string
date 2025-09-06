@@ -8,9 +8,13 @@ use std::iter::FusedIterator;
 use std::num::NonZero;
 
 use crate::iters::Split;
+use crate::pattern::Utf16Pattern;
 use crate::slicing::SliceIndex;
 use crate::utilities::is_trailing_surrogate;
-use crate::{CodeUnit, Pattern, ReverseSearcher, Searcher, Utf16CharIndices, Utf16Chars, Utf16Str};
+use crate::{
+    CodeUnit, Pattern, ReverseSearcher, Searcher, Utf16CharIndices, Utf16Chars, Utf16Str,
+    Utf16String,
+};
 
 impl Utf16Str {
     /// Creates a new `&Utf16Str` from an existing UTF-16 byte-slice.
@@ -311,6 +315,47 @@ impl Utf16Str {
         let (first, second) = self.raw.split_at(mid);
         (Self::from_code_units(first), Self::from_code_units(second))
     }
+
+    /// Replaces all matches of a pattern with another string.
+    ///
+    /// `replace` creates a new [`String`], and copies the data from this string slice into it.
+    /// While doing so, it attempts to find matches of a pattern. If it finds any, it
+    /// replaces them with the replacement string slice.
+    ///
+    /// ## Example
+    /// ```rust
+    /// # use utf16string::utf16;
+    /// let foo = utf16!("I am a utf16 string").to_owned();
+    /// println!("{:?} {:?}", foo, foo.replace('a', utf16!("bar")));
+    /// assert_eq!(foo.replace('a', utf16!("bar")).as_utf16_str(), utf16!("I barm bar utf16 string"));
+    /// ```
+    #[inline]
+    #[must_use = "this returns the replaced string as a new allocation, without modifying the original"]
+    pub fn replace<P: Pattern>(&self, from: P, to: &Utf16Str) -> Utf16String {
+        // Set result capacity to self.len() when from.len() <= to.len()
+        let default_capacity = match from.as_utf16_pattern() {
+            Some(Utf16Pattern::StringPattern(s))
+                if s.number_of_code_units() <= to.number_of_code_units() =>
+            {
+                self.number_of_code_units()
+            }
+            Some(Utf16Pattern::CharPattern(c)) if c.len_utf16() <= to.number_of_code_units() => {
+                self.number_of_code_units()
+            }
+            _ => 0,
+        };
+
+        let mut result = Utf16String::with_capacity(default_capacity);
+        let mut last_end = 0;
+        for (start, part) in self.match_indices(from) {
+            result.push_utf16_str(unsafe { self.get_unchecked(last_end..start) });
+            result.push_utf16_str(to);
+            last_end = start + part.number_of_code_units();
+        }
+
+        result.push_utf16_str(unsafe { self.get_unchecked(last_end..self.number_of_code_units()) });
+        result
+    }
 }
 
 impl AsRef<[u16]> for Utf16Str {
@@ -475,5 +520,24 @@ mod tests {
     #[should_panic]
     fn test_windows_with_size_zero() {
         utf16!("foobar").windows(0);
+    }
+
+    #[test]
+    fn test_replace() {
+        let haystack = utf16!("ab");
+        let needle = utf16!("ab");
+        let replace_with = utf16!("X");
+        assert_eq!(
+            haystack.replace(needle, replace_with).as_utf16_str(),
+            utf16!("X")
+        );
+
+        let haystack = utf16!("foobar bar baz");
+        let needle = utf16!("bar");
+        let replace_with = utf16!("servo");
+        assert_eq!(
+            haystack.replace(needle, replace_with).as_utf16_str(),
+            utf16!("fooservo servo baz")
+        );
     }
 }

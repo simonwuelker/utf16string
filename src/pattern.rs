@@ -355,6 +355,11 @@ impl<'needle> Pattern for &'needle Utf16Str {
             position: 0,
         }
     }
+
+    #[inline]
+    fn as_utf16_pattern(&self) -> Option<Utf16Pattern<'_>> {
+        Some(Utf16Pattern::StringPattern(*self))
+    }
 }
 
 impl<'a, 'needle> Searcher<'a> for Utf16StrSearcher<'a, 'needle> {
@@ -373,14 +378,19 @@ impl<'a, 'needle> Searcher<'a> for Utf16StrSearcher<'a, 'needle> {
             return SearchStep::Done;
         };
 
-        if next_start == 0 {
-            SearchStep::Match(
-                self.position / 2,
-                (self.position + self.needle.number_of_code_units()) / 2,
-            )
+        let (search_step, advance_by) = if next_start == 0 {
+            let search_step = SearchStep::Match(
+                self.position,
+                self.position + self.needle.number_of_code_units(),
+            );
+            (search_step, self.needle.number_of_code_units())
         } else {
-            SearchStep::Reject(self.position, self.position + next_start)
-        }
+            let search_step = SearchStep::Reject(self.position, self.position + next_start);
+            (search_step, next_start)
+        };
+        self.position += advance_by;
+
+        search_step
     }
 }
 
