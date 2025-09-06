@@ -399,3 +399,89 @@ pub struct Utf16StrSearcher<'haystack, 'needle> {
     needle: &'needle Utf16Str,
     position: usize,
 }
+
+impl<const N: usize> Pattern for [char; N] {
+    type Searcher<'a> = CharArraySearcher<'a, N>;
+
+    fn into_searcher(self, haystack: &Utf16Str) -> Self::Searcher<'_> {
+        assert_ne!(N, 0);
+
+        CharArraySearcher {
+            haystack,
+            last_position: 0,
+            searchers: self.map(|c| c.into_searcher(haystack)),
+            next_matches: None,
+        }
+    }
+}
+
+impl<'a, const N: usize> Searcher<'a> for CharArraySearcher<'a, N> {
+    fn haystack(&self) -> &'a Utf16Str {
+        self.haystack
+    }
+
+    fn next(&mut self) -> SearchStep {
+        let next_matches = self.next_matches.get_or_insert_with(|| {
+            self.searchers
+                .each_mut()
+                .map(|searcher| searcher.next_match())
+        });
+
+        let Some((index, closest_match)) = next_matches
+            .iter()
+            .enumerate()
+            .filter_map(|(index, next_match)| Some((index, next_match.clone()?)))
+            .min_by_key(|(_, (start, _))| *start)
+        else {
+            // No more matches to be found
+            let haystack_length = self.haystack.number_of_code_units();
+            if self.last_position == haystack_length {
+                return SearchStep::Done;
+            } else {
+                let search_step = SearchStep::Reject(self.last_position, haystack_length);
+                self.last_position = haystack_length;
+                return search_step;
+            }
+        };
+
+        let search_step;
+        if closest_match.0 == self.last_position {
+            next_matches[index] = self.searchers[index].next_match();
+            search_step = SearchStep::Match(closest_match.0, closest_match.1);
+            self.last_position = closest_match.1;
+        } else {
+            search_step = SearchStep::Reject(self.last_position, closest_match.0);
+            self.last_position = closest_match.0;
+        };
+
+        search_step
+    }
+}
+
+pub struct CharArraySearcher<'a, const N: usize> {
+    haystack: &'a Utf16Str,
+    last_position: usize,
+    searchers: [<char as Pattern>::Searcher<'a>; N],
+    next_matches: Option<[Option<(usize, usize)>; N]>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utf16;
+
+    #[test]
+    fn test_multi_char_pattern() {
+        let haystack = utf16!("foobar baz");
+        let needle = ['b', 'o'];
+        let mut search_steps = needle.into_searcher(haystack);
+
+        assert_eq!(search_steps.next(), SearchStep::Reject(0, 1));
+        assert_eq!(search_steps.next(), SearchStep::Match(1, 2));
+        assert_eq!(search_steps.next(), SearchStep::Match(2, 3));
+        assert_eq!(search_steps.next(), SearchStep::Match(3, 4));
+        assert_eq!(search_steps.next(), SearchStep::Reject(4, 7));
+        assert_eq!(search_steps.next(), SearchStep::Match(7, 8));
+        assert_eq!(search_steps.next(), SearchStep::Reject(8, 10));
+    }
+}
