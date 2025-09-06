@@ -1,52 +1,46 @@
 // This module is largely adapted from https://github.com/rust-lang/rust/blob/8a407a82848bbc926de1cbbbbcb381e1a96f5968/library/core/src/str/pattern.rs
 
-use crate::Utf16Str;
-use byteorder::ByteOrder;
+use crate::{CodeUnit, Utf16Str};
 
-pub enum Utf16Pattern<'a, E>
-where
-    E: ByteOrder,
-{
+pub enum Utf16Pattern<'a> {
     CharPattern(char),
-    StringPattern(&'a Utf16Str<E>),
+    StringPattern(&'a Utf16Str),
 }
 
-pub trait Pattern<E>: Sized
-where
-    E: ByteOrder,
-{
-    type Searcher<'a>: Searcher<'a, E>
-    where
-        E: 'a;
+pub trait Pattern: Sized {
+    type Searcher<'a>: Searcher<'a>;
 
     /// Constructs the associated searcher from
     /// `self` and the `haystack` to search in.
-    fn into_searcher(self, haystack: &Utf16Str<E>) -> Self::Searcher<'_>;
+    fn into_searcher(self, haystack: &Utf16Str) -> Self::Searcher<'_>;
 
     /// Checks whether the pattern matches anywhere in the haystack
     #[inline]
-    fn is_contained_in(self, haystack: &Utf16Str<E>) -> bool {
+    #[allow(clippy::wrong_self_convention)]
+    fn is_contained_in(self, haystack: &Utf16Str) -> bool {
         self.into_searcher(haystack).next_match().is_some()
     }
 
     /// Checks whether the pattern matches at the front of the haystack
     #[inline]
-    fn is_prefix_of(self, haystack: &Utf16Str<E>) -> bool {
+    #[allow(clippy::wrong_self_convention)]
+    fn is_prefix_of(self, haystack: &Utf16Str) -> bool {
         matches!(self.into_searcher(haystack).next(), SearchStep::Match(0, _))
     }
 
     /// Checks whether the pattern matches at the back of the haystack
     #[inline]
-    fn is_suffix_of<'a>(self, haystack: &'a Utf16Str<E>) -> bool
+    #[allow(clippy::wrong_self_convention)]
+    fn is_suffix_of<'a>(self, haystack: &'a Utf16Str) -> bool
     where
-        Self::Searcher<'a>: ReverseSearcher<'a, E>,
+        Self::Searcher<'a>: ReverseSearcher<'a>,
     {
-        matches!(self.into_searcher(haystack).next_back(), SearchStep::Match(_, j) if haystack.len() == j)
+        matches!(self.into_searcher(haystack).next_back(), SearchStep::Match(_, j) if haystack.number_of_code_units() == j)
     }
 
     /// Removes the pattern from the front of haystack, if it matches.
     #[inline]
-    fn strip_prefix_of(self, haystack: &Utf16Str<E>) -> Option<&Utf16Str<E>> {
+    fn strip_prefix_of(self, haystack: &Utf16Str) -> Option<&Utf16Str> {
         if let SearchStep::Match(start, len) = self.into_searcher(haystack).next() {
             debug_assert_eq!(
                 start, 0,
@@ -62,14 +56,14 @@ where
 
     /// Removes the pattern from the back of haystack, if it matches.
     #[inline]
-    fn strip_suffix_of<'a>(self, haystack: &'a Utf16Str<E>) -> Option<&'a Utf16Str<E>>
+    fn strip_suffix_of<'a>(self, haystack: &'a Utf16Str) -> Option<&'a Utf16Str>
     where
-        Self::Searcher<'a>: ReverseSearcher<'a, E>,
+        Self::Searcher<'a>: ReverseSearcher<'a>,
     {
         if let SearchStep::Match(start, end) = self.into_searcher(haystack).next_back() {
             debug_assert_eq!(
                 end,
-                haystack.len(),
+                haystack.number_of_code_units(),
                 "The first search step from ReverseSearcher \
                     must include the last character"
             );
@@ -79,19 +73,16 @@ where
         }
     }
 
-    fn as_utf16_pattern(&self) -> Option<Utf16Pattern<'_, E>> {
+    fn as_utf16_pattern(&self) -> Option<Utf16Pattern<'_>> {
         None
     }
 }
 
-pub trait Searcher<'a, E>
-where
-    E: ByteOrder,
-{
+pub trait Searcher<'a> {
     /// Getter for the underlying string to be searched in
     ///
-    /// Will always return the same [`&WStr`][WStr].
-    fn haystack(&self) -> &'a Utf16Str<E>;
+    /// Will always return the same [`&Utf16Str`][Utf16Str].
+    fn haystack(&self) -> &'a Utf16Str;
 
     /// Performs the next search step starting from the front.
     ///
@@ -154,10 +145,7 @@ where
     }
 }
 
-pub trait ReverseSearcher<'a, E>: Searcher<'a, E>
-where
-    E: ByteOrder,
-{
+pub trait ReverseSearcher<'a>: Searcher<'a> {
     /// Performs the next search step starting from the back.
     ///
     /// - Returns [`Match(a, b)`][SearchStep::Match] if `haystack[a..b]`
@@ -213,6 +201,8 @@ where
 pub enum SearchStep {
     /// Expresses that a match of the pattern has been found at
     /// `haystack[a..b]`.
+    ///
+    /// Both indices are in UTF16 code units.
     Match(usize, usize),
     /// Expresses that `haystack[a..b]` has been rejected as a possible match
     /// of the pattern.
@@ -225,50 +215,36 @@ pub enum SearchStep {
     Done,
 }
 
-impl<E> Pattern<E> for char
-where
-    E: ByteOrder,
-{
-    type Searcher<'a>
-        = CharSearcher<'a, E>
-    where
-        E: 'a;
+impl Pattern for char {
+    type Searcher<'a> = CharSearcher<'a>;
 
     #[inline]
-    fn into_searcher<'a>(self, haystack: &'a Utf16Str<E>) -> Self::Searcher<'a> {
+    fn into_searcher<'a>(self, haystack: &'a Utf16Str) -> Self::Searcher<'a> {
         let mut utf16_encoded = [0; 2];
-        let mut utf16_bytes = [0; 4];
-        let utf16_size = (self.encode_utf16(&mut utf16_encoded).len() * 2)
-            .try_into()
-            .expect("char len should be less than 255");
-        E::write_u16(&mut utf16_bytes[0..2], utf16_encoded[0]);
-        E::write_u16(&mut utf16_bytes[2..4], utf16_encoded[1]);
+        let utf16_size = self.encode_utf16(&mut utf16_encoded).len() as u8;
 
         CharSearcher {
             haystack,
             finger: 0,
-            finger_back: haystack.len(),
+            finger_back: haystack.number_of_code_units(),
             needle: self,
             utf16_size,
-            utf16_encoded: utf16_bytes,
+            utf16_encoded,
         }
     }
 
     #[inline]
-    fn as_utf16_pattern(&self) -> Option<Utf16Pattern<'_, E>> {
+    fn as_utf16_pattern(&self) -> Option<Utf16Pattern<'_>> {
         Some(Utf16Pattern::CharPattern(*self))
     }
 }
 
 /// Associated type for `<char as Pattern>::Searcher<'a>`.
 #[derive(Clone, Debug)]
-pub struct CharSearcher<'a, E>
-where
-    E: 'a + ByteOrder,
-{
-    haystack: &'a Utf16Str<E>,
+pub struct CharSearcher<'a> {
+    haystack: &'a Utf16Str,
     /// `finger` is the current byte index of the forward search.
-    /// Imagine that it exists before the byte at its index, i.e.
+    /// Imagine that it exists before the unit at its index, i.e.
     /// `haystack[finger]` is the first byte of the slice we must inspect during
     /// forward searching
     finger: usize,
@@ -283,24 +259,19 @@ where
     /// The number of bytes `needle` takes up when encoded in utf16.
     utf16_size: u8,
     /// A utf16 encoded copy of the `needle`
-    utf16_encoded: [u8; 4],
+    utf16_encoded: [CodeUnit; 2],
 }
 
-impl<E> CharSearcher<'_, E>
-where
-    E: ByteOrder,
-{
+impl CharSearcher<'_> {
+    /// The number of bytes `needle` takes up when encoded in utf16.
     fn utf16_size(&self) -> usize {
         self.utf16_size.into()
     }
 }
 
-impl<'a, E> Searcher<'a, E> for CharSearcher<'a, E>
-where
-    E: ByteOrder,
-{
+impl<'a> Searcher<'a> for CharSearcher<'a> {
     #[inline]
-    fn haystack(&self) -> &'a Utf16Str<E> {
+    fn haystack(&self) -> &'a Utf16Str {
         self.haystack
     }
 
@@ -310,11 +281,10 @@ where
 
         let slice = &self.haystack[old_finger..self.finger_back];
         let mut iter = slice.chars();
-        let old_len = iter.chunks.remainder().len();
+        let old_len = iter.remaining.number_of_code_units();
+        debug_assert_eq!(old_len % 2, 0);
         if let Some(ch) = iter.next() {
-            // add byte offset of current character
-            // without re-encoding as utf-16
-            self.finger += old_len - iter.chunks.remainder().len();
+            self.finger += old_len - iter.remaining.number_of_code_units();
             if ch == self.needle {
                 SearchStep::Match(old_finger, self.finger)
             } else {
@@ -329,15 +299,14 @@ where
     fn next_match(&mut self) -> Option<(usize, usize)> {
         loop {
             // get the haystack after the last character found
-            let bytes = self
+            let code_units = self
                 .haystack
-                .as_bytes()
+                .as_code_units()
                 .get(self.finger..self.finger_back)?;
-            // the last byte of the utf8 encoded needle
 
             let last_byte = self.utf16_encoded[self.utf16_size() - 1];
 
-            if let Some(index) = bytes.iter().position(|b| *b == last_byte) {
+            if let Some(index) = code_units.iter().position(|b| *b == last_byte) {
                 // The new finger is the index of the byte we found,
                 // plus one, since we searched for the last byte of the character.
                 //
@@ -358,10 +327,10 @@ where
                 self.finger += index + 1;
                 if self.finger >= self.utf16_size() {
                     let found_char = self.finger - self.utf16_size();
-                    if let Some(slice) = self.haystack.as_bytes().get(found_char..self.finger) {
-                        if slice == &self.utf16_encoded[0..self.utf16_size()] {
-                            return Some((found_char, self.finger));
-                        }
+                    if let Some(slice) = self.haystack.as_code_units().get(found_char..self.finger)
+                        && slice == &self.utf16_encoded[0..self.utf16_size()]
+                    {
+                        return Some((found_char, self.finger));
                     }
                 }
             } else {
@@ -376,16 +345,10 @@ where
 }
 
 /// Non-allocating substring search
-impl<'needle, E> Pattern<E> for &'needle Utf16Str<E>
-where
-    E: ByteOrder,
-{
-    type Searcher<'haystack>
-        = Utf16StrSearcher<'haystack, 'needle, E>
-    where
-        E: 'haystack;
+impl<'needle> Pattern for &'needle Utf16Str {
+    type Searcher<'haystack> = Utf16StrSearcher<'haystack, 'needle>;
 
-    fn into_searcher(self, haystack: &Utf16Str<E>) -> Self::Searcher<'_> {
+    fn into_searcher(self, haystack: &Utf16Str) -> Self::Searcher<'_> {
         Utf16StrSearcher {
             haystack,
             needle: self,
@@ -394,11 +357,8 @@ where
     }
 }
 
-impl<'a, 'needle, E> Searcher<'a, E> for Utf16StrSearcher<'a, 'needle, E>
-where
-    E: ByteOrder,
-{
-    fn haystack(&self) -> &'a Utf16Str<E> {
+impl<'a, 'needle> Searcher<'a> for Utf16StrSearcher<'a, 'needle> {
+    fn haystack(&self) -> &'a Utf16Str {
         self.haystack
     }
 
@@ -406,26 +366,26 @@ where
         // FIXME: Use a better algorithm here
         let remaining = &self.haystack[self.position..];
         let Some(next_start) = remaining
-            .as_bytes()
-            .windows(self.needle.len())
-            .position(|window| window == self.needle.as_bytes())
+            .as_code_units()
+            .windows(self.needle.number_of_code_units())
+            .position(|window| window == self.needle.as_code_units())
         else {
             return SearchStep::Done;
         };
 
         if next_start == 0 {
-            SearchStep::Match(self.position, self.position + self.needle.len())
+            SearchStep::Match(
+                self.position / 2,
+                (self.position + self.needle.number_of_code_units()) / 2,
+            )
         } else {
             SearchStep::Reject(self.position, self.position + next_start)
         }
     }
 }
 
-pub struct Utf16StrSearcher<'haystack, 'needle, E>
-where
-    E: ByteOrder,
-{
-    haystack: &'haystack Utf16Str<E>,
-    needle: &'needle Utf16Str<E>,
+pub struct Utf16StrSearcher<'haystack, 'needle> {
+    haystack: &'haystack Utf16Str,
+    needle: &'needle Utf16Str,
     position: usize,
 }

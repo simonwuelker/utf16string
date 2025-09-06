@@ -3,48 +3,43 @@
 //! The type itself lives in the lib.rs file to avoid having to have a public alias, but
 //! implementations live here.
 
-use byteorder::ByteOrder;
-
 use std::fmt;
 use std::iter::FusedIterator;
 
-use crate::utilities::{
-    Utf16CharExt, decode_surrogates, is_leading_surrogate, is_trailing_surrogate,
-};
+use crate::utilities::{decode_surrogates, is_leading_surrogate, is_trailing_surrogate};
 use crate::{Pattern, ReverseSearcher, Searcher, Utf16Str};
 use crate::{Utf16CharIndices, Utf16Chars};
 
-impl<'a, E> Iterator for Utf16Chars<'a, E>
-where
-    E: ByteOrder,
-{
+impl<'a> Iterator for Utf16Chars<'a> {
     type Item = char;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         // Our input is valid UTF-16, so we can take a lot of shortcuts.
-        let chunk = self.chunks.next()?;
-        let u = E::read_u16(chunk);
+        let (first, remaining) = self.remaining.split_first()?;
+        self.remaining = remaining;
 
-        if !is_leading_surrogate(u) {
+        if !is_leading_surrogate(first) {
             // SAFETY: This is now guaranteed a valid Unicode code point.
-            Some(unsafe { std::char::from_u32_unchecked(u as u32) })
+            Some(unsafe { std::char::from_u32_unchecked(first as u32) })
         } else {
-            let chunk = self.chunks.next().expect("missing trailing surrogate");
-            let u2 = E::read_u16(chunk);
-            debug_assert!(
-                is_trailing_surrogate(u2),
-                "code unit not a trailing surrogate"
-            );
-            Some(unsafe { decode_surrogates(u, u2) })
+            let (second, remaining) = self.remaining.split_first()?;
+            self.remaining = remaining;
+
+            if !is_trailing_surrogate(second) {
+                return None;
+            }
+            Some(unsafe { decode_surrogates(first, second) })
         }
     }
 
     #[inline]
     fn count(self) -> usize {
         // No need to fully construct all characters
-        self.chunks
-            .filter(|bb| !is_trailing_surrogate(E::read_u16(bb)))
+        self.remaining
+            .as_code_units()
+            .iter()
+            .filter(|code_unit| !is_trailing_surrogate(**code_unit))
             .count()
     }
 
@@ -54,44 +49,38 @@ where
     }
 }
 
-impl<'a, E> FusedIterator for Utf16Chars<'a, E> where E: ByteOrder {}
+impl<'a> FusedIterator for Utf16Chars<'a> {}
 
-impl<'a, E> DoubleEndedIterator for Utf16Chars<'a, E>
-where
-    E: ByteOrder,
-{
+impl<'a> DoubleEndedIterator for Utf16Chars<'a> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         // Our input is valid UTF-16, so we can take a lot of shortcuts.
-        let chunk = self.chunks.next_back()?;
-        let u = E::read_u16(chunk);
+        let (last, remaining) = self.remaining.split_last()?;
+        self.remaining = remaining;
 
-        if !is_trailing_surrogate(u) {
+        if !is_trailing_surrogate(last) {
             // SAFETY: This is now guaranteed a valid Unicode code point.
-            Some(unsafe { std::char::from_u32_unchecked(u as u32) })
+            Some(unsafe { std::char::from_u32_unchecked(last as u32) })
         } else {
-            let chunk = self.chunks.next_back().expect("missing leading surrogate");
-            let u2 = E::read_u16(chunk);
-            debug_assert!(
-                is_leading_surrogate(u2),
-                "code unit not a leading surrogate"
-            );
-            Some(unsafe { decode_surrogates(u2, u) })
+            let (leading_surrogate, remaining) = self.remaining.split_last()?;
+            self.remaining = remaining;
+
+            if !is_leading_surrogate(leading_surrogate) {
+                return None;
+            }
+            Some(unsafe { decode_surrogates(leading_surrogate, last) })
         }
     }
 }
 
-impl<'a, E> Iterator for Utf16CharIndices<'a, E>
-where
-    E: ByteOrder,
-{
+impl<'a> Iterator for Utf16CharIndices<'a> {
     type Item = (usize, char);
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let pos = self.index;
         let c = self.chars.next()?;
-        self.index += c.encoded_utf16_len();
+        self.index += c.len_utf16();
         Some((pos, c))
     }
 
@@ -107,24 +96,20 @@ where
     }
 }
 
-impl<'a, E> DoubleEndedIterator for Utf16CharIndices<'a, E>
-where
-    E: ByteOrder,
-{
+impl<'a> DoubleEndedIterator for Utf16CharIndices<'a> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         let c = self.chars.next_back()?;
-        let pos = self.index + self.chars.chunks.len() * size_of::<u16>();
+        let pos = self.index + self.chars.remaining.number_of_code_units();
         Some((pos, c))
     }
 }
 
-impl<'a, E> FusedIterator for Utf16CharIndices<'a, E> where E: ByteOrder {}
+impl<'a> FusedIterator for Utf16CharIndices<'a> {}
 
-pub struct Split<'a, E, P>
+pub struct Split<'a, P>
 where
-    E: 'a + ByteOrder,
-    P: Pattern<E>,
+    P: Pattern,
 {
     pub(super) start: usize,
     pub(super) end: usize,
@@ -133,10 +118,10 @@ where
     pub(super) finished: bool,
 }
 
-impl<'a, E, P> fmt::Debug for Split<'a, E, P>
+impl<'a, P> fmt::Debug for Split<'a, P>
 where
-    E: 'a + ByteOrder,
-    P: Pattern<E, Searcher<'a>: fmt::Debug>,
+    P: Pattern,
+    <P as Pattern>::Searcher<'a>: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Split")
@@ -149,12 +134,11 @@ where
     }
 }
 
-impl<'a, E, P> Iterator for Split<'a, E, P>
+impl<'a, P> Iterator for Split<'a, P>
 where
-    E: 'a + ByteOrder,
-    P: Pattern<E>,
+    P: Pattern,
 {
-    type Item = &'a Utf16Str<E>;
+    type Item = &'a Utf16Str;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.finished {
@@ -173,11 +157,10 @@ where
     }
 }
 
-impl<'a, E, P> DoubleEndedIterator for Split<'a, E, P>
+impl<'a, P> DoubleEndedIterator for Split<'a, P>
 where
-    E: 'a + ByteOrder,
-    P: Pattern<E>,
-    P::Searcher<'a>: ReverseSearcher<'a, E>,
+    P: Pattern,
+    P::Searcher<'a>: ReverseSearcher<'a>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.finished {
@@ -211,13 +194,12 @@ where
     }
 }
 
-impl<'a, E, P> Split<'a, E, P>
+impl<'a, P> Split<'a, P>
 where
-    E: 'a + ByteOrder,
-    P: Pattern<E>,
+    P: Pattern,
 {
     #[inline]
-    fn get_end(&mut self) -> Option<&'a Utf16Str<E>> {
+    fn get_end(&mut self) -> Option<&'a Utf16Str> {
         if !self.finished {
             self.finished = true;
 
@@ -231,7 +213,7 @@ where
     }
 
     #[inline]
-    pub fn next_inclusive(&mut self) -> Option<&'a Utf16Str<E>> {
+    pub fn next_inclusive(&mut self) -> Option<&'a Utf16Str> {
         if self.finished {
             return None;
         }
@@ -248,9 +230,9 @@ where
     }
 
     #[inline]
-    pub fn next_back_inclusive(&mut self) -> Option<&'a Utf16Str<E>>
+    pub fn next_back_inclusive(&mut self) -> Option<&'a Utf16Str>
     where
-        P::Searcher<'a>: ReverseSearcher<'a, E>,
+        P::Searcher<'a>: ReverseSearcher<'a>,
     {
         if self.finished {
             return None;
@@ -283,7 +265,7 @@ where
     }
 
     #[inline]
-    pub fn remainder(&self) -> Option<&'a Utf16Str<E>> {
+    pub fn remainder(&self) -> Option<&'a Utf16Str> {
         // `Self::get_end` doesn't change `self.start`
         if self.finished {
             return None;
@@ -295,120 +277,90 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::Utf16Str;
+    use crate::utf16;
 
     #[test]
-    fn test_wstr_chars() {
-        let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = Utf16Str::from_utf16le(b).unwrap();
+    fn test_utf16str_chars() {
+        let s = utf16!("hello");
         let chars: Vec<char> = s.chars().collect();
         assert_eq!(chars, vec!['h', 'e', 'l', 'l', 'o']);
-
-        let b = b"\x00\xd8\x00\xdcx\x00";
-        let s = Utf16Str::from_utf16le(b).unwrap();
-        let chars: Vec<char> = s.chars().collect();
-        assert_eq!(chars, vec!['\u{10000}', 'x']);
-
-        // Regression: this leading surrogate used to be badly detected.
-        let b = b"\x41\xf8A\x00";
-        let s = Utf16Str::from_utf16le(b).unwrap();
-        let chars: Vec<char> = s.chars().collect();
-        assert_eq!(chars, vec!['\u{f841}', 'A']);
     }
 
     #[test]
-    fn test_wstr_chars_reverse() {
-        let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = Utf16Str::from_utf16le(b).unwrap();
+    fn test_utf16str_chars_reverse() {
+        let s = utf16!("hello");
         let chars: Vec<char> = s.chars().rev().collect();
         assert_eq!(chars, vec!['o', 'l', 'l', 'e', 'h']);
-
-        let b = b"\x00\xd8\x00\xdcx\x00";
-        let s = Utf16Str::from_utf16le(b).unwrap();
-        let chars: Vec<char> = s.chars().rev().collect();
-        assert_eq!(chars, vec!['x', '\u{10000}']);
     }
 
     #[test]
-    fn test_wstr_chars_last() {
-        let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = Utf16Str::from_utf16le(b).unwrap();
+    fn test_utf16str_chars_last() {
+        let s = utf16!("hello");
         let c = s.chars().last().unwrap();
         assert_eq!(c, 'o');
 
-        let b = b"\x00\xd8\x00\xdcx\x00";
-        let s = Utf16Str::from_utf16le(b).unwrap();
+        let s = utf16!("\u{10000}x");
         let c = s.chars().last().unwrap();
         assert_eq!(c, 'x');
     }
 
     #[test]
-    fn test_wstr_chars_count() {
-        let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = Utf16Str::from_utf16le(b).unwrap();
+    fn test_utf16str_chars_count() {
+        let s = utf16!("hello");
         let n = s.chars().count();
         assert_eq!(n, 5);
 
-        let b = b"\x00\xd8\x00\xdcx\x00";
-        let s = Utf16Str::from_utf16le(b).unwrap();
+        let s = utf16!("\u{10000}x");
         let n = s.chars().count();
         assert_eq!(n, 2);
     }
 
     #[test]
-    fn test_wstr_char_indices() {
-        let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = Utf16Str::from_utf16le(b).unwrap();
+    fn test_utf16str_char_indices() {
+        let s = utf16!("hello");
         let chars: Vec<(usize, char)> = s.char_indices().collect();
         assert_eq!(
             chars,
-            vec![(0, 'h'), (2, 'e'), (4, 'l'), (6, 'l'), (8, 'o')]
+            vec![(0, 'h'), (1, 'e'), (2, 'l'), (3, 'l'), (4, 'o')]
         );
 
-        let b = b"\x00\xd8\x00\xdcx\x00";
-        let s = Utf16Str::from_utf16le(b).unwrap();
+        let s = utf16!("\u{10000}x");
         let chars: Vec<(usize, char)> = s.char_indices().collect();
-        assert_eq!(chars, vec![(0, '\u{10000}'), (4, 'x')]);
+        assert_eq!(chars, vec![(0, '\u{10000}'), (2, 'x')]);
     }
 
     #[test]
-    fn test_wstr_char_indices_reverse() {
-        let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = Utf16Str::from_utf16le(b).unwrap();
+    fn test_utf16str_char_indices_reverse() {
+        let s = utf16!("hello");
         let chars: Vec<(usize, char)> = s.char_indices().rev().collect();
         assert_eq!(
             chars,
-            vec![(8, 'o'), (6, 'l'), (4, 'l'), (2, 'e'), (0, 'h')]
+            vec![(4, 'o'), (3, 'l'), (2, 'l'), (1, 'e'), (0, 'h')]
         );
 
-        let b = b"\x00\xd8\x00\xdcx\x00";
-        let s = Utf16Str::from_utf16le(b).unwrap();
+        let s = utf16!("\u{10000}x");
         let chars: Vec<(usize, char)> = s.char_indices().rev().collect();
-        assert_eq!(chars, vec![(4, 'x'), (0, '\u{10000}')]);
+        assert_eq!(chars, vec![(2, 'x'), (0, '\u{10000}')]);
     }
 
     #[test]
-    fn test_wstr_char_indices_last() {
-        let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = Utf16Str::from_utf16le(b).unwrap();
+    fn test_utf16str_char_indices_last() {
+        let s = utf16!("hello");
         let c = s.char_indices().last().unwrap();
-        assert_eq!(c, (8, 'o'));
+        assert_eq!(c, (4, 'o'));
 
-        let b = b"\x00\xd8\x00\xdcx\x00";
-        let s = Utf16Str::from_utf16le(b).unwrap();
+        let s = utf16!("\u{10000}x");
         let c = s.char_indices().last().unwrap();
-        assert_eq!(c, (4, 'x'));
+        assert_eq!(c, (2, 'x'));
     }
 
     #[test]
-    fn test_wstr_char_indices_count() {
-        let b = b"h\x00e\x00l\x00l\x00o\x00";
-        let s = Utf16Str::from_utf16le(b).unwrap();
+    fn test_utf16str_char_indices_count() {
+        let s = utf16!("hello");
         let n = s.char_indices().count();
         assert_eq!(n, 5);
 
-        let b = b"\x00\xd8\x00\xdcx\x00";
-        let s = Utf16Str::from_utf16le(b).unwrap();
+        let s = utf16!("\u{10000}x");
         let n = s.char_indices().count();
         assert_eq!(n, 2);
     }

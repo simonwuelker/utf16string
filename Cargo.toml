@@ -1,17 +1,15 @@
 [package]
 name = "utf16string"
-version = "0.2.0"
+version = "0.1.0"
 authors = [
-    "Floris Bruynooghe <flub@devork.be>",
-    "Sentry <oss@sentry.io>",
+    "Simon Wülker <simon.wuelker@arcor.de>",
 ]
-description = "String types to work directly with UTF-16 encoded strings"
+description = "Potentially ill-formed UTF-16 encoded string types"
 readme = "README.md"
 keywords = ["utf16", "string", "wstring"]
 categories = ["encoding", "text-processing"]
-repository = "https://github.com/getsentry/utf16string"
+repository = "https://github.com/simonwuelker/utf16string"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-byteorder = "1"

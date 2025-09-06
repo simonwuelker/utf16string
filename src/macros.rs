@@ -37,7 +37,7 @@ const fn next_code_point(bytes: &[u8], start: usize) -> Option<(u32, usize)> {
         return None;
     }
     let mut num_bytes = 1;
-    let x = bytes[start + 0];
+    let x = bytes[start];
     if x < 128 {
         return Some((x as u32, num_bytes));
     }
@@ -120,29 +120,20 @@ macro_rules! utf16 {
 
             (&{ result }, utf16_offset)
         };
-        const NUM_BYTES: usize = UTF16_BUFFER.1 * 2;
-
-        // Truncate the utf16 buffer to the used size
-        const OUT: &[u8] = unsafe {
-            ::std::slice::from_raw_parts(UTF16_BUFFER.0.as_ptr() as *const u8, NUM_BYTES)
-        };
-
-        unsafe { $crate::Utf16Str::<byteorder::NativeEndian>::from_utf16_unchecked(OUT) }
+        let valid_slice =
+            unsafe { ::std::slice::from_raw_parts(UTF16_BUFFER.0.as_ptr(), UTF16_BUFFER.1) };
+        $crate::Utf16Str::from_code_units(valid_slice)
     }};
 }
 
 #[cfg(test)]
 mod tests {
-    use byteorder::NativeEndian;
-
     use crate::Utf16Str;
-
-    use super::*;
 
     #[test]
     fn encode_utf16_works() {
         const TEXT: &str = "Hello \0ä日本 語🚀🦀";
-        const RESULT: &Utf16Str<NativeEndian> = utf16!(TEXT);
+        const RESULT: &Utf16Str = utf16!(TEXT);
 
         assert_eq!(RESULT.to_utf8(), TEXT);
     }
