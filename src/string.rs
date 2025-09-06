@@ -76,22 +76,13 @@ impl Utf16String {
 
     /// Shortens this string to the specified length.
     ///
-    /// The `new_len` is specified in bytes and not characters, just as [Utf16String::len]
-    /// returns the length in bytes.  If `new_len` is greater than the string's current
-    /// length, this has no effect.
+    /// The `new_len` is specified in code units and not characters.
+    /// If `new_len` is greater than the string's current length, this has no effect.
     ///
     /// Note that this method has no effect on the allocated capacity of the string.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `new_len` does not lie on a [char] boundary.
     #[inline]
     pub fn truncate(&mut self, new_len: usize) {
         if new_len < self.number_of_code_units() {
-            assert!(
-                self.is_char_boundary(new_len),
-                "new Utf16String length not on char boundary"
-            );
             self.buf.truncate(new_len)
         }
     }
