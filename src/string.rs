@@ -92,13 +92,14 @@ impl Utf16String {
     /// Returns [`None`] if this string is empty or the last code unit is a trailing
     /// surrogate.
     #[inline]
-    pub fn pop(&mut self) -> Option<char> {
-        let character = self.chars().next_back()?;
-        let new_length = self.number_of_code_units() - character.len_utf16();
+    pub fn pop(&mut self) -> Option<Result<char, CodeUnit>> {
+        let maybe_character = self.chars().next_back()?;
+        let new_length =
+            self.number_of_code_units() - maybe_character.map(|c| c.len_utf16()).unwrap_or(1);
         unsafe {
             self.buf.set_len(new_length);
         }
-        Some(character)
+        Some(maybe_character)
     }
 
     /// Retains only the characters specified by the predicate.
@@ -113,7 +114,7 @@ impl Utf16String {
     /// # use utf16string::utf16;
     /// let mut s = utf16!("f_o_ob_ar").to_owned();
     ///
-    /// s.retain(|c| c != '_');
+    /// s.retain(|c| c != Ok('_'));
     ///
     /// assert_eq!(s.as_utf16_str(), utf16!("foobar"));
     /// ```
@@ -132,7 +133,7 @@ impl Utf16String {
     #[inline]
     pub fn retain<F>(&mut self, mut f: F)
     where
-        F: FnMut(char) -> bool,
+        F: FnMut(Result<char, CodeUnit>) -> bool,
     {
         /// Ensures that the string is left in a valid state, even if the closure panics.
         struct SetLenOnDrop<'a> {
@@ -158,30 +159,38 @@ impl Utf16String {
 
         while guard.index < len {
             // FIXME: Handle lone surrogates here instead of panicking
-            let character = unsafe { guard.string.get_unchecked(guard.index..len) }
+            let maybe_char = unsafe { guard.string.get_unchecked(guard.index..len) }
                 .chars()
                 .next()
                 .unwrap();
-            let ch_len = character.len_utf16();
 
-            if !f(character) {
+            let ch_len = maybe_char.map(|c| c.len_utf16()).unwrap_or(1);
+
+            if !f(maybe_char) {
                 guard.deleted_code_units += ch_len;
             } else if guard.deleted_code_units > 0 {
-                // SAFETY: `guard.idx` is in bound and `guard.deleted_code_units` represent the number of
-                // code units that are erased from the string so the resulting `guard.idx -
-                // guard.deleted_code_units` are always in bounds.
-                //
-                // `guard.deleted_code_units` >= `ch.len_utf16()`, so taking a slice with `ch.len_utf8()` len
-                // is safe.
-                character.encode_utf16(unsafe {
-                    std::slice::from_raw_parts_mut(
-                        guard
-                            .string
-                            .as_mut_ptr()
-                            .add(guard.index - guard.deleted_code_units),
-                        ch_len,
-                    )
-                });
+                match maybe_char {
+                    Ok(character) => {
+                        // SAFETY: `guard.idx` is in bound and `guard.deleted_code_units` represent the number of
+                        // code units that are erased from the string so the resulting `guard.idx -
+                        // guard.deleted_code_units` are always in bounds.
+                        //
+                        // `guard.deleted_code_units` >= `ch.len_utf16()`, so taking a slice with `ch.len_utf8()` len
+                        // is safe.
+                        character.encode_utf16(unsafe {
+                            std::slice::from_raw_parts_mut(
+                                guard
+                                    .string
+                                    .as_mut_ptr()
+                                    .add(guard.index - guard.deleted_code_units),
+                                ch_len,
+                            )
+                        });
+                    }
+                    Err(lone_surrogate) => {
+                        guard.string[guard.index - guard.deleted_code_units] = lone_surrogate;
+                    }
+                }
             }
             guard.index += ch_len;
         }
@@ -500,24 +509,31 @@ mod tests {
         let mut string = utf16!("a\u{10000}hi").to_owned();
         assert_eq!(string.to_utf8(), "a\u{10000}hi");
 
-        assert_eq!(string.pop(), Some('i'));
+        assert_eq!(string.pop(), Some(Ok('i')));
         assert_eq!(string.to_utf8(), "a\u{10000}h");
 
-        assert_eq!(string.pop(), Some('h'));
+        assert_eq!(string.pop(), Some(Ok('h')));
         assert_eq!(string.to_utf8(), "a\u{10000}");
 
-        assert_eq!(string.pop(), Some('\u{10000}'));
+        assert_eq!(string.pop(), Some(Ok('\u{10000}')));
         assert_eq!(string.to_utf8(), "a");
 
-        assert_eq!(string.pop(), Some('a'));
+        assert_eq!(string.pop(), Some(Ok('a')));
         assert!(string.is_empty());
     }
 
     #[test]
     fn test_retain() {
         let mut s: Utf16String = From::from("h_e__ll_o");
-        s.retain(|c| c != '_');
+        s.retain(|c| c != Ok('_'));
         assert_eq!(s.to_utf8(), "hello");
+    }
+
+    #[test]
+    fn test_retain_with_surrogates() {
+        let mut s: Utf16String = vec![b'a'.into(), 0xD800, b'b'.into()].into();
+        s.retain(|c| c.is_ok());
+        assert_eq!(s.to_utf8(), "ab");
     }
 
     #[test]

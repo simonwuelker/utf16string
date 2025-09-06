@@ -161,14 +161,16 @@ impl Utf16Str {
     }
 
     /// Returns this [`Utf16Str`] as a new owned [`String`].
+    ///
+    /// Any lone surrogates in the string are replaced with `\u{FFFD}`.
     pub fn to_utf8(&self) -> String {
-        self.chars().collect()
+        self.chars().map(|c| c.unwrap_or('\u{FFFD}')).collect()
     }
 
     /// Returns `true` if all characters in the string are ASCII.
     #[inline]
     pub fn is_ascii(&self) -> bool {
-        self.chars().all(|c| c.is_ascii())
+        self.chars().all(|c| c.is_ok_and(|c| c.is_ascii()))
     }
 
     /// Returns an iterator over the disjoint matches of a pattern within this string

@@ -282,10 +282,10 @@ impl<'a> Searcher<'a> for CharSearcher<'a> {
         let slice = &self.haystack[old_finger..self.finger_back];
         let mut iter = slice.chars();
         let old_len = iter.remaining.number_of_code_units();
-        debug_assert_eq!(old_len % 2, 0);
+
         if let Some(ch) = iter.next() {
             self.finger += old_len - iter.remaining.number_of_code_units();
-            if ch == self.needle {
+            if ch == Ok(self.needle) {
                 SearchStep::Match(old_finger, self.finger)
             } else {
                 SearchStep::Reject(old_finger, self.finger)

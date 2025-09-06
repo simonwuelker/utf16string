@@ -6,7 +6,7 @@ use std::ops::{
     Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
 };
 
-use crate::{Utf16Str, Utf16String};
+use crate::{CodeUnit, Utf16Str, Utf16String};
 
 mod private {
     use super::*;
@@ -19,6 +19,7 @@ mod private {
     impl SealedSliceIndex for RangeTo<usize> {}
     impl SealedSliceIndex for RangeInclusive<usize> {}
     impl SealedSliceIndex for RangeToInclusive<usize> {}
+    impl SealedSliceIndex for usize {}
 }
 /// Our own version of [`std::slice::SliceIndex`].
 ///
@@ -341,6 +342,34 @@ impl SliceIndex<Utf16Str> for RangeToInclusive<usize> {
             panic!("index overflow");
         }
         (..self.end + 1).index_mut(slice)
+    }
+}
+
+impl SliceIndex<Utf16Str> for usize {
+    type Output = CodeUnit;
+
+    fn index(self, slice: &Utf16Str) -> &Self::Output {
+        &slice[self]
+    }
+
+    fn index_mut(self, slice: &mut Utf16Str) -> &mut Self::Output {
+        &mut slice[self]
+    }
+
+    fn get(self, slice: &Utf16Str) -> Option<&Self::Output> {
+        slice.as_code_units().get(self)
+    }
+
+    fn get_mut(self, slice: &mut Utf16Str) -> Option<&mut Self::Output> {
+        slice.as_code_units_mut().get_mut(self)
+    }
+
+    unsafe fn get_unchecked(self, slice: &Utf16Str) -> &Self::Output {
+        unsafe { slice.as_code_units().get_unchecked(self) }
+    }
+
+    unsafe fn get_unchecked_mut(self, slice: &mut Utf16Str) -> &mut Self::Output {
+        unsafe { slice.as_code_units_mut().get_unchecked_mut(self) }
     }
 }
 

@@ -83,7 +83,7 @@ pub struct Utf16String {
 /// let b = b"h\x00e\x00l\x00l\x00o\x00";
 /// let s: &Utf16Str = utf16!("hello");
 ///
-/// let chars: Vec<char> = s.chars().collect();
+/// let chars: Vec<_> = s.chars().map(|c| c.unwrap()).collect();
 /// assert_eq!(chars, vec!['h', 'e', 'l', 'l', 'o']);
 ///
 /// assert_eq!(s.to_utf8(), "hello");

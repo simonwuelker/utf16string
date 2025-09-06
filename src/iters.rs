@@ -7,11 +7,11 @@ use std::fmt;
 use std::iter::FusedIterator;
 
 use crate::utilities::{decode_surrogates, is_leading_surrogate, is_trailing_surrogate};
-use crate::{Pattern, ReverseSearcher, Searcher, Utf16Str};
+use crate::{CodeUnit, Pattern, ReverseSearcher, Searcher, Utf16Str};
 use crate::{Utf16CharIndices, Utf16Chars};
 
 impl<'a> Iterator for Utf16Chars<'a> {
-    type Item = char;
+    type Item = Result<char, CodeUnit>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -19,28 +19,18 @@ impl<'a> Iterator for Utf16Chars<'a> {
         let (first, remaining) = self.remaining.split_first()?;
         self.remaining = remaining;
 
-        if !is_leading_surrogate(first) {
-            // SAFETY: This is now guaranteed a valid Unicode code point.
-            Some(unsafe { std::char::from_u32_unchecked(first as u32) })
-        } else {
+        if is_leading_surrogate(first) {
             let (second, remaining) = self.remaining.split_first()?;
+            if !is_trailing_surrogate(second) {
+                return Some(Err(first));
+            }
             self.remaining = remaining;
 
-            if !is_trailing_surrogate(second) {
-                return None;
-            }
-            Some(unsafe { decode_surrogates(first, second) })
+            let character = unsafe { decode_surrogates(first, second) };
+            Some(Ok(character))
+        } else {
+            Some(char::from_u32(first as u32).ok_or(first))
         }
-    }
-
-    #[inline]
-    fn count(self) -> usize {
-        // No need to fully construct all characters
-        self.remaining
-            .as_code_units()
-            .iter()
-            .filter(|code_unit| !is_trailing_surrogate(**code_unit))
-            .count()
     }
 
     #[inline]
@@ -58,35 +48,34 @@ impl<'a> DoubleEndedIterator for Utf16Chars<'a> {
         let (last, remaining) = self.remaining.split_last()?;
         self.remaining = remaining;
 
-        if !is_trailing_surrogate(last) {
-            // SAFETY: This is now guaranteed a valid Unicode code point.
-            Some(unsafe { std::char::from_u32_unchecked(last as u32) })
-        } else {
+        if is_trailing_surrogate(last) {
             let (leading_surrogate, remaining) = self.remaining.split_last()?;
+            if !is_leading_surrogate(leading_surrogate) {
+                return Some(Err(last));
+            }
             self.remaining = remaining;
 
-            if !is_leading_surrogate(leading_surrogate) {
-                return None;
-            }
-            Some(unsafe { decode_surrogates(leading_surrogate, last) })
+            let character = unsafe { decode_surrogates(leading_surrogate, last) };
+            Some(Ok(character))
+        } else {
+            Some(char::from_u32(last as u32).ok_or(last))
         }
     }
 }
 
 impl<'a> Iterator for Utf16CharIndices<'a> {
-    type Item = (usize, char);
+    type Item = (usize, Result<char, CodeUnit>);
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let pos = self.index;
-        let c = self.chars.next()?;
-        self.index += c.len_utf16();
-        Some((pos, c))
+        let maybe_c = self.chars.next()?;
+        self.index += maybe_c.map(|c| c.len_utf16()).unwrap_or(1);
+        Some((pos, maybe_c))
     }
 
     #[inline]
     fn count(self) -> usize {
-        // No need to fully construct all characters
         self.chars.count()
     }
 
@@ -277,31 +266,31 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::utf16;
+    use crate::{Utf16Str, utf16};
 
     #[test]
     fn test_utf16str_chars() {
         let s = utf16!("hello");
-        let chars: Vec<char> = s.chars().collect();
-        assert_eq!(chars, vec!['h', 'e', 'l', 'l', 'o']);
+        let chars: Vec<_> = s.chars().collect();
+        assert_eq!(chars, vec![Ok('h'), Ok('e'), Ok('l'), Ok('l'), Ok('o')]);
     }
 
     #[test]
     fn test_utf16str_chars_reverse() {
         let s = utf16!("hello");
-        let chars: Vec<char> = s.chars().rev().collect();
-        assert_eq!(chars, vec!['o', 'l', 'l', 'e', 'h']);
+        let chars: Vec<_> = s.chars().rev().collect();
+        assert_eq!(chars, vec![Ok('o'), Ok('l'), Ok('l'), Ok('e'), Ok('h')]);
     }
 
     #[test]
     fn test_utf16str_chars_last() {
         let s = utf16!("hello");
         let c = s.chars().last().unwrap();
-        assert_eq!(c, 'o');
+        assert_eq!(c, Ok('o'));
 
         let s = utf16!("\u{10000}x");
         let c = s.chars().last().unwrap();
-        assert_eq!(c, 'x');
+        assert_eq!(c, Ok('x'));
     }
 
     #[test]
@@ -318,40 +307,52 @@ mod tests {
     #[test]
     fn test_utf16str_char_indices() {
         let s = utf16!("hello");
-        let chars: Vec<(usize, char)> = s.char_indices().collect();
+        let chars: Vec<_> = s.char_indices().collect();
         assert_eq!(
             chars,
-            vec![(0, 'h'), (1, 'e'), (2, 'l'), (3, 'l'), (4, 'o')]
+            vec![
+                (0, Ok('h')),
+                (1, Ok('e')),
+                (2, Ok('l')),
+                (3, Ok('l')),
+                (4, Ok('o'))
+            ]
         );
 
         let s = utf16!("\u{10000}x");
-        let chars: Vec<(usize, char)> = s.char_indices().collect();
-        assert_eq!(chars, vec![(0, '\u{10000}'), (2, 'x')]);
+        let chars: Vec<_> = s.char_indices().collect();
+        assert_eq!(chars, vec![(0, Ok('\u{10000}')), (2, Ok('x'))]);
     }
 
     #[test]
     fn test_utf16str_char_indices_reverse() {
         let s = utf16!("hello");
-        let chars: Vec<(usize, char)> = s.char_indices().rev().collect();
+        let chars: Vec<_> = s.char_indices().rev().collect();
         assert_eq!(
             chars,
-            vec![(4, 'o'), (3, 'l'), (2, 'l'), (1, 'e'), (0, 'h')]
+            vec![
+                (4, Ok('o')),
+                (3, Ok('l')),
+                (2, Ok('l')),
+                (1, Ok('e')),
+                (0, Ok('h'))
+            ]
         );
 
         let s = utf16!("\u{10000}x");
-        let chars: Vec<(usize, char)> = s.char_indices().rev().collect();
-        assert_eq!(chars, vec![(2, 'x'), (0, '\u{10000}')]);
+        let chars: Vec<_> = s.char_indices().rev().collect();
+        assert_eq!(chars, vec![(2, Ok('x')), (0, Ok('\u{10000}'))]);
     }
 
     #[test]
     fn test_utf16str_char_indices_last() {
         let s = utf16!("hello");
         let c = s.char_indices().last().unwrap();
-        assert_eq!(c, (4, 'o'));
+        assert_eq!(c, (4, Ok('o')));
 
         let s = utf16!("\u{10000}x");
         let c = s.char_indices().last().unwrap();
-        assert_eq!(c, (2, 'x'));
+        assert_eq!(c, (2, Ok('x')));
     }
 
     #[test]
@@ -363,5 +364,25 @@ mod tests {
         let s = utf16!("\u{10000}x");
         let n = s.char_indices().count();
         assert_eq!(n, 2);
+    }
+
+    #[test]
+    fn test_utf16str_chars_lone_surrogate() {
+        let string = Utf16Str::from_code_units(&[b'x' as u16, 0xD800, b'y' as u16]);
+        let mut characters = string.chars();
+
+        assert_eq!(characters.next(), Some(Ok('x')));
+        assert_eq!(characters.next(), Some(Err(0xD800)));
+        assert_eq!(characters.next(), Some(Ok('y')));
+    }
+
+    #[test]
+    fn test_utf16str_chars_rev_lone_surrogate() {
+        let string = Utf16Str::from_code_units(&[b'x' as u16, 0xD800, b'y' as u16]);
+        let mut characters = string.chars().rev();
+
+        assert_eq!(characters.next(), Some(Ok('y')));
+        assert_eq!(characters.next(), Some(Err(0xD800)));
+        assert_eq!(characters.next(), Some(Ok('x')));
     }
 }
